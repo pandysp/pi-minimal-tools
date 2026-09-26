@@ -20,7 +20,7 @@ const CHECKOUTS = [
  * package, so a run without `-e EXTENSION` really is stock pi, whether or not the user installed it.
  */
 export function tempDir(prefix: string, settings: object = {}): string {
-	const dir = realpathSync(mkdtempSync(join(tmpdir(), `pi-claude-tools-${prefix}-`)));
+	const dir = realpathSync(mkdtempSync(join(tmpdir(), `pi-minimal-tools-${prefix}-`)));
 	mkdirSync(join(dir, ".pi"));
 	const packages = CHECKOUTS.map((source) => ({ source, extensions: [] }));
 	writeFileSync(join(dir, ".pi/settings.json"), JSON.stringify({ ...settings, packages }));

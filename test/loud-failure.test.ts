@@ -23,6 +23,6 @@ describe("a crash in the drawing code is visible in the row", () => {
 		["write", () => withDot(broken(createWriteToolDefinition("/tmp"))), { path: "a.md", content: "x" }],
 	] as const)("%s", (_name, definition, args) => {
 		const text = plain(renderRow({ definition: definition(), args, result: { text: "done" }, expanded: true })).join("\n");
-		expect(text).toMatch(/pi-claude-tools: drawing the (bash|write) row failed: stock render(Call|Result) changed/);
+		expect(text).toMatch(/pi-minimal-tools: drawing the (bash|write) row failed: stock render(Call|Result) changed/);
 	});
 });

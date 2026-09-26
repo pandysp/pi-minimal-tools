@@ -1,4 +1,4 @@
-# pi-claude-tools
+# pi-minimal-tools
 
 Claude Code-style tool rows for [pi](https://pi.dev): the rows that matter stand out, the rest shrink to one line.
 
@@ -18,7 +18,7 @@ Only the display changes. The model gets exactly the same tools, instructions an
 ## Install
 
 ```sh
-pi install git:github.com/pandysp/pi-claude-tools
+pi install git:github.com/pandysp/pi-minimal-tools
 ```
 
 Tested with pi 0.87.1, alongside `@gotgenes/pi-anthropic-auth` and `pi-hydra`.
@@ -27,7 +27,8 @@ Tested with pi 0.87.1, alongside `@gotgenes/pi-anthropic-auth` and `pi-hydra`.
 
 - **Sorting is strict on purpose.** Pipes (`ls | head`), command lists (`ls; true`), redirects, `$…` and `{…}` always get a full row: the exit code only belongs to the last command, so an earlier failure could otherwise hide in a summary line.
 - **In practice, summaries show up less than you might expect.** Models often chain commands (`cd … && git status && cat …`), and chains get a full row. See decision A29.
-- **pi hides crashes in tool drawing code** and quietly shows only the tool name. This extension shows a red `pi-claude-tools: drawing the … row failed: …` line instead. If you see one after a pi update, the extension needs updating.
+- **pi hides crashes in tool drawing code** and quietly shows only the tool name. This extension shows a red `pi-minimal-tools: drawing the … row failed: …` line instead. If you see one after a pi update, the extension needs updating.
+- **Commands you type yourself** with `!` or `!!` keep pi's normal display: pi draws them with a separate component, which this extension leaves alone.
 - **If another extension also takes over `bash`, `write` or `edit`**, pi uses the first one registered, without a warning.
 
 ## Decisions

@@ -25,4 +25,4 @@ export function loud<A extends unknown[]>(tool: string, draw: (...args: A) => Co
 }
 
 const failure = (tool: string, error: unknown) =>
-	new Text(`\x1b[31mpi-claude-tools: drawing the ${tool} row failed: ${error instanceof Error ? error.message : String(error)}\x1b[39m`, 0, 0);
+	new Text(`\x1b[31mpi-minimal-tools: drawing the ${tool} row failed: ${error instanceof Error ? error.message : String(error)}\x1b[39m`, 0, 0);
