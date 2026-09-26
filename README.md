@@ -43,4 +43,4 @@ npm run check   # types
 npm test        # includes real-pi tests: they call the configured model and take about a minute
 ```
 
-The real-pi tests need `tmux` and send a few tiny requests to your configured model. They switch off any installed copy of this package for their own runs.
+The real-pi tests need `tmux` and send a few tiny requests to your configured model. For their own runs they switch off this checkout if it is installed (and, when run from a git worktree, the main checkout). Any other installed copy, e.g. one installed from GitHub, makes them stop with a clear error instead of measuring the wrong thing.
