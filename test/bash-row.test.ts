@@ -11,7 +11,7 @@ const row = (command: string, result?: { text: string; isError?: boolean }, expa
 	renderRow({ definition: bash(), args: { command }, result, expanded });
 const visible = (lines: string[]) => plain(lines).filter((l) => l.trim() !== "");
 
-describe("bash rows (target: test-plan.md R1, R3, R9 with the v1 deviations)", () => {
+describe("bash rows", () => {
 	it("running, no output yet: grey dot, the command, and 'Running…'", () => {
 		const lines = row("sleep 5");
 		expect(visible(lines)).toEqual([`${DOT} $ sleep 5`, "  Running…"]);

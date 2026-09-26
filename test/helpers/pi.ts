@@ -1,7 +1,8 @@
 import { execFile, execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { afterAll } from "vitest";
 
 export const REPO = resolve(import.meta.dirname, "../..");
 export const EXTENSION = join(REPO, "index.ts");
@@ -15,12 +16,16 @@ const CHECKOUTS = [
 	...new Set([REPO, dirname(resolve(REPO, execFileSync("git", ["rev-parse", "--git-common-dir"], { cwd: REPO, encoding: "utf8" }).trim()))]),
 ];
 
+/** All test folders of a test file live here and are removed after it (vitest workers skip "exit" handlers). */
+const TEMP_ROOT = realpathSync(mkdtempSync(join(tmpdir(), "pi-minimal-tools-")));
+afterAll(() => rmSync(TEMP_ROOT, { recursive: true, force: true }));
+
 /**
  * A fresh project directory for pi runs. Its project settings switch off any installed copy of this
  * package, so a run without `-e EXTENSION` really is stock pi, whether or not the user installed it.
  */
 export function tempDir(prefix: string, settings: object = {}): string {
-	const dir = realpathSync(mkdtempSync(join(tmpdir(), `pi-minimal-tools-${prefix}-`)));
+	const dir = mkdtempSync(join(TEMP_ROOT, `${prefix}-`));
 	mkdirSync(join(dir, ".pi"));
 	const packages = CHECKOUTS.map((source) => ({ source, extensions: [] }));
 	writeFileSync(join(dir, ".pi/settings.json"), JSON.stringify({ ...settings, packages }));

@@ -42,3 +42,5 @@ npm install
 npm run check   # types
 npm test        # includes real-pi tests: they call the configured model and take about a minute
 ```
+
+The real-pi tests need `tmux` and send a few tiny requests to your configured model. They switch off any installed copy of this package for their own runs.

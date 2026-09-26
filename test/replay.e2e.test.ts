@@ -15,7 +15,7 @@ describe("replayed sessions in real pi with the user's full setup", () => {
 		expect(ours.length).toBeLessThanOrEqual(11);
 	});
 
-	it("R7.2: header, prompt, reply and footer are unchanged, apart from our extension's name and the reply dot", async () => {
+	it("header, prompt, reply and footer are unchanged, apart from our extension's name and the reply dot", async () => {
 		// Same folder for both: it is shown in the footer.
 		const cwd = tempDir("r72");
 		const parts = async (withExtension: boolean) =>

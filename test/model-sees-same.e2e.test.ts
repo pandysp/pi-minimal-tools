@@ -9,14 +9,14 @@ const FIXTURES = join(REPO, "test/fixtures");
 // Two stock runs of the same resumed session were measured byte-identical (2026-09-26),
 // so any difference below comes from the extension.
 describe("rule 1: the model is sent exactly what it would be sent without the extension", () => {
-	it("R7.1: a resumed session with bash and read history sends the identical request", async () => {
+	it("a resumed session with bash and read history sends the identical request", async () => {
 		const cwd = tempDir("r71");
 		const run = async (withExtension: boolean) =>
 			(await runPi({ cwd, prompt: "Reply with just: ok", withExtension, session: copySession("session-bash-read.jsonl", cwd) })).requests;
 		expect(await run(true)).toEqual(await run(false));
 	});
 
-	it("R7.4: switching tools off in settings stays respected (no tool gets switched back on)", async () => {
+	it("switching tools off in settings stays respected (no tool gets switched back on)", async () => {
 		// Same directory for both runs: its path is part of the system prompt.
 		const cwd = tempDir("r74", { defaultTools: ["read"] });
 		const run = async (withExtension: boolean) => (await runPi({ cwd, prompt: "Reply with just: ok", withExtension })).requests;
@@ -24,7 +24,7 @@ describe("rule 1: the model is sent exactly what it would be sent without the ex
 		expect(ext).toEqual(stock);
 	});
 
-	it("R7.3: bash honours the user's shell, command prefix and session directory", async () => {
+	it("bash honours the user's shell, command prefix and session directory", async () => {
 		const prompt =
 			'Use the bash tool exactly once to run: echo "prefix=$PI_PREFIX_MARK shell=$PI_SHELL_MARK" && pwd -P . Then reply with just: done';
 		const lastRequest = async (withExtension: boolean) => {
