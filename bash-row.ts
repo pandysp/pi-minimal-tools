@@ -93,10 +93,10 @@ export function claudeBash(stock: BashDefinition): BashDefinition {
 	};
 }
 
-/** The command as Claude Code's collapsed row shows it: cut to the caps above, then "…". */
+/** The command as Claude Code's collapsed row shows it: cut to the caps above, then "…" right after the last visible character. */
 function shortCommand(command: string): string {
 	const short = command.split("\n").slice(0, COMMAND_LINES).join("\n").slice(0, COMMAND_CHARS);
-	return short === command ? command : `${short}…`;
+	return short === command ? command : `${short.trimEnd()}…`;
 }
 
 /** Non-empty output lines, as the model received them. */

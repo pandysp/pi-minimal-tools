@@ -118,11 +118,14 @@ describe("bash rows", () => {
 		expect(text.at(-1)).toContain("… +1 lines");
 	});
 
-	// Both shapes captured from Claude Code 2.1.283: `Bash(set -e; cd "$PWD"\n      python3 - <<'E'\u2026)` and a long
-	// echo cut after 160 characters ("\u2026nnnnnnnnnn o\u2026") at 60 and 120 columns alike.
-	it("a long script shows only its first 2 lines, then '\u2026', like Claude Code", () => {
+	// All shapes captured from Claude Code 2.1.283: `Bash(set -e; cd "$PWD"\n      python3 - <<'E'\u2026)`, a heredoc whose
+	// 2nd line is blank as `Bash(mkdir -p emails && cd emails && cat > sig.txt <<'EOF2'\u2026)`, and a long echo cut after
+	// 160 characters ("\u2026nnnnnnnnnn o\u2026") at 60 and 120 columns alike.
+	it("a long script shows only its first 2 lines, then '\u2026' right after the last visible character, like Claude Code", () => {
 		const script = `set -e; cd "$PWD"\npython3 - <<'E'\nprint('hi')\nE\nwc -l build.py`;
 		expect(visible(row(script, { text: "hi" }))).toEqual([`${DOT} $ set -e; cd "$PWD"`, "  python3 - <<'E'\u2026", "  hi"]);
+		const blankSecondLine = "cat > sig.txt <<'EOF'\n\n\u2014\nEOF\necho written";
+		expect(visible(row(blankSecondLine, { text: "written" }))).toEqual([`${DOT} $ cat > sig.txt <<'EOF'\u2026`, "  written"]);
 	});
 
 	it("a long one-line command is cut after 160 characters; wrapped lines hang under the command", () => {
