@@ -103,6 +103,7 @@ describe("bash rows", () => {
 	it.each([
 		["seq 1 20", numbered(20)],
 		["cat sample.txt", numbered(20)],
+		["echo 1\necho 2\necho 3", "1\n2\n3"],
 	])("Ctrl+O on %j: exactly stock pi's expanded row, drawn without pi's frame (decision A30)", (command, text) => {
 		const frameless = { ...createBashToolDefinition("/tmp"), renderShell: "self" as const };
 		const stock = renderRow({ definition: frameless, args: { command }, result: { text }, expanded: true });
@@ -130,11 +131,6 @@ describe("bash rows", () => {
 		const header = text.slice(0, -1);
 		expect(header.join(" ").replace(/\s+/g, " ")).toBe(`${DOT} $ echo ${words.slice(0, 14).join(" ")} o\u2026`);
 		for (const line of header.slice(1)) expect(line).toMatch(/^  \S/);
-	});
-
-	it("Ctrl+O still shows the whole command", () => {
-		const script = "echo 1\necho 2\necho 3";
-		expect(plain(row(script, { text: "1\n2\n3" }, true)).join("\n")).toContain("echo 3");
 	});
 
 	it("no frame around the row: at most one blank line (pi's spacing between rows), none inside", () => {
