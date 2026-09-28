@@ -8,7 +8,8 @@ const FIXTURES = join(REPO, "test/fixtures");
 
 // Two stock runs of the same resumed session were measured byte-identical (2026-09-26),
 // so any difference below comes from the extension.
-describe("rule 1: the model is sent exactly what it would be sent without the extension", () => {
+// Real pi calls the real model: allow minutes, not vitest's default 5 seconds.
+describe("rule 1: the model is sent exactly what it would be sent without the extension", { timeout: 300_000 }, () => {
 	it("a resumed session with bash and read history sends the identical request", async () => {
 		const cwd = tempDir("r71");
 		const run = async (withExtension: boolean) =>

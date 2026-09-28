@@ -17,6 +17,9 @@ interface RowState {
 }
 
 const PREVIEW_LINES = 3;
+/** Claude Code's cap on the command in a collapsed row, measured on Claude Code 2.1.283 (decision A33). */
+const COMMAND_LINES = 2;
+const COMMAND_CHARS = 160;
 const SUMMARY = { list: "Listed 1 directory", read: "Read 1 file", search: "Searched for 1 pattern" } as const;
 
 /** grep and rg exit with code 1 when they find nothing. A single grep/rg with no output: a finished search. */
@@ -54,9 +57,11 @@ export function claudeBash(stock: BashDefinition): BashDefinition {
 				}
 				const colour = outcome === "succeeded" || outcome === "failed" ? outcome : "running";
 				// The command is undefined while the model is still typing it; stock shows "$ ..." then too.
-				const header = `${dot(colour)} ${theme.fg("toolTitle", theme.bold(`$ ${args.command ?? "..."}`))}`;
+				const command = theme.fg("toolTitle", theme.bold(`$ ${shortCommand(args.command ?? "...")}`));
+				// Drawn 2 columns narrower, so wrapped lines hang under the command instead of under the dot.
+				const header = text(command, width - 2).map((l, i) => (i === 0 ? `${dot(colour)} ${l}` : `  ${l}`));
 				const running = outcome === undefined ? [`  ${theme.fg("muted", "Running…")}`] : [];
-				return text([header, ...running].join("\n"), width);
+				return [...header, ...running];
 			});
 		}),
 
@@ -86,6 +91,12 @@ export function claudeBash(stock: BashDefinition): BashDefinition {
 			return lazy((width) => shown.map((l) => truncateToWidth(l, width)));
 		}),
 	};
+}
+
+/** The command as Claude Code's collapsed row shows it: cut to the caps above, then "…". */
+function shortCommand(command: string): string {
+	const short = command.split("\n").slice(0, COMMAND_LINES).join("\n").slice(0, COMMAND_CHARS);
+	return short === command ? command : `${short}…`;
 }
 
 /** Non-empty output lines, as the model received them. */

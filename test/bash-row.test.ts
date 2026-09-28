@@ -117,6 +117,26 @@ describe("bash rows", () => {
 		expect(text.at(-1)).toContain("… +1 lines");
 	});
 
+	// Both shapes captured from Claude Code 2.1.283: `Bash(set -e; cd "$PWD"\n      python3 - <<'E'\u2026)` and a long
+	// echo cut after 160 characters ("\u2026nnnnnnnnnn o\u2026") at 60 and 120 columns alike.
+	it("a long script shows only its first 2 lines, then '\u2026', like Claude Code", () => {
+		const script = `set -e; cd "$PWD"\npython3 - <<'E'\nprint('hi')\nE\nwc -l build.py`;
+		expect(visible(row(script, { text: "hi" }))).toEqual([`${DOT} $ set -e; cd "$PWD"`, "  python3 - <<'E'\u2026", "  hi"]);
+	});
+
+	it("a long one-line command is cut after 160 characters; wrapped lines hang under the command", () => {
+		const words = "abcdefghijklmnopqrstuvwxyz".split("").map((c) => c.repeat(10));
+		const text = visible(renderRow({ definition: bash(), args: { command: `echo ${words.join(" ")}` }, result: { text: "ok" }, width: 60 }));
+		const header = text.slice(0, -1);
+		expect(header.join(" ").replace(/\s+/g, " ")).toBe(`${DOT} $ echo ${words.slice(0, 14).join(" ")} o\u2026`);
+		for (const line of header.slice(1)) expect(line).toMatch(/^  \S/);
+	});
+
+	it("Ctrl+O still shows the whole command", () => {
+		const script = "echo 1\necho 2\necho 3";
+		expect(plain(row(script, { text: "1\n2\n3" }, true)).join("\n")).toContain("echo 3");
+	});
+
 	it("no frame around the row: at most one blank line (pi's spacing between rows), none inside", () => {
 		for (const [command, text] of [["ls", "a\nb"], ["seq 1 5", "1\n2\n3\n4\n5"]]) {
 			const lines = plain(row(command, { text }));

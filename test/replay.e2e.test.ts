@@ -3,7 +3,8 @@ import { basename } from "node:path";
 import { REPO, tempDir } from "./helpers/pi";
 import { countedLines, replay, splitAtToolCalls } from "./helpers/replay";
 
-describe("replayed sessions in real pi with the user's full setup", () => {
+// Real pi in tmux, waiting for the screen to settle: allow minutes, not vitest's default 5 seconds.
+describe("replayed sessions in real pi with the user's full setup", { timeout: 300_000 }, () => {
 	it("test C (3 bash commands + a read) takes at most 11 lines (same method, same run: stock pi 18; Claude Code measured 6)", async () => {
 		const cwd = tempDir("test-c");
 		const count = async (withExtension: boolean) => {

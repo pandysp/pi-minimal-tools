@@ -9,6 +9,7 @@ Claude Code-style tool rows for [pi](https://pi.dev): the rows that matter stand
 
 - **Look-around commands** (a single `ls`, `cat`, `head`, `tail`, `wc`, `grep`, `rg` or `find`) collapse to one grey line: `Listed 1 directory`, `Read 1 file`, `Searched for 1 pattern`.
 - **Everything else** gets a full row with the first 3 output lines.
+- **Long commands are cut like in Claude Code:** at most 2 lines and 160 characters, then `…`.
 - **Failures are always shown in full**, with a red dot. A `grep` or `rg` that simply found nothing is not a failure.
 - **Claude Code's dots:** green = succeeded, red = failed, grey = running, on bash, write and edit rows, plus a dot in front of agent replies that start with plain text.
 - **Ctrl+O** shows pi's normal full view.
