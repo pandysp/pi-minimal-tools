@@ -9,6 +9,7 @@ import { claudeBash } from "./bash-row";
 import { shortCodemode, stockCodemode } from "./codemode-row";
 import { withDot } from "./dotted-row";
 import { replyDot } from "./reply-dot";
+import { shortWrite } from "./write-row";
 
 export default function (pi: ExtensionAPI) {
 	pi.registerMarkdownTransformer(replyDot);
@@ -25,7 +26,7 @@ export default function (pi: ExtensionAPI) {
 		// Registering a tool switches it on. Keep the user's active set exactly as it was.
 		const active = pi.getActiveTools();
 		pi.registerTool(claudeBash(bash));
-		pi.registerTool(withDot(createWriteToolDefinition(ctx.cwd)));
+		pi.registerTool(shortWrite(createWriteToolDefinition(ctx.cwd)));
 		pi.registerTool(withDot(createEditToolDefinition(ctx.cwd)));
 		// Only when pi has codemode at all: the built-in can be switched off in settings.
 		if (pi.getAllTools().some((tool) => tool.name === "codemode")) pi.registerTool(shortCodemode(stockCodemode(pi)));

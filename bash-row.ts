@@ -16,7 +16,8 @@ interface RowState {
 	claudeRow?: Outcome;
 }
 
-const PREVIEW_LINES = 3;
+/** Output lines in a collapsed row; written files show as many content lines. */
+export const PREVIEW_LINES = 3;
 /** Claude Code's cap on the command in a collapsed row, measured on Claude Code 2.1.283 (decision A33). */
 const COMMAND_LINES = 2;
 const COMMAND_CHARS = 160;
