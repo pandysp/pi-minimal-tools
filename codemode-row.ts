@@ -1,5 +1,4 @@
-import { type ExtensionAPI, highlightCode, type ToolDefinition } from "@earendil-works/pi-coding-agent";
-import { createCodemodeExtension } from "@earendil-works/pi-coding-agent";
+import { createCodemodeExtension, type ExtensionAPI, highlightCode, type ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { type Component, Text } from "@earendil-works/pi-tui";
 import { shortCommand } from "./bash-row";
 import { dotInFront, rowState } from "./dotted-row";
