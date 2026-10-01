@@ -9,7 +9,7 @@ type WriteDefinition = ReturnType<typeof createWriteToolDefinition>;
 /**
  * Stock write with the dot, showing only the first 3 lines of the content and `… +N lines`, like a bash
  * row's output. Stock draws the row from the cut content, so path, highlighting and errors stay stock.
- * Ctrl+O shows stock's full content.
+ * Ctrl+O shows stock's full content; a failed write shows stock's row (10 lines), with the error below.
  */
 export function shortWrite(stock: WriteDefinition): WriteDefinition {
 	const dotted = withDot(stock);
@@ -18,7 +18,8 @@ export function shortWrite(stock: WriteDefinition): WriteDefinition {
 		...dotted,
 		renderCall: loud("write", (args, theme, ctx) => {
 			const content: unknown = args?.content;
-			if (ctx.expanded || typeof content !== "string") return dottedCall(args, theme, ctx);
+			// Ctrl+O, failed writes (more context next to the error) and content stock rejects: stock's row with the dot.
+			if (ctx.expanded || ctx.isError || typeof content !== "string") return dottedCall(args, theme, ctx);
 			// Counted like stock: without \r and trailing empty lines.
 			const lines = content.replace(/\r/g, "").split("\n");
 			while (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();

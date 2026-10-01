@@ -13,7 +13,7 @@ Claude Code-style tool rows for [pi](https://pi.dev): the rows that matter stand
 - **Everything else** gets a full row with the first 3 output lines. A written file shows its first 3 lines the same way.
 - **Long commands are cut like in Claude Code:** at most 2 lines and 160 characters, then `…`.
 - **codemode scripts are cut the same way.** The list of tool calls the script made and its output are drawn by stock pi, without pi's frame like all rows here.
-- **Failures stand out with a red mark.** Failed bash, write and edit calls get a red dot and are shown in full; a `grep` or `rg` that simply found nothing is not a failure. A failed call inside a codemode script gets a red `✗` line; its error text is on Ctrl+O, as in stock pi.
+- **Failures stand out with a red mark.** Failed bash, write and edit calls get a red dot and show their error in full; a `grep` or `rg` that simply found nothing is not a failure. A failed call inside a codemode script gets a red `✗` line; its error text is on Ctrl+O, as in stock pi.
 - **Claude Code's dots:** green = succeeded, red = failed, grey = running, on bash, write, edit and codemode rows, plus a dot in front of agent replies that start with plain text.
 - **Ctrl+O** shows pi's normal full view.
 

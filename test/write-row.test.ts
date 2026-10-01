@@ -34,10 +34,14 @@ describe("write rows", () => {
 		expect(text).not.toContain("… +37 lines");
 	});
 
-	it("a failed write: red dot and stock's error text", () => {
-		const lines = row(numbered(40), { text: "EACCES: permission denied", isError: true });
+	it("a failed write: red dot, stock's row (more of the content) and stock's error text", () => {
+		const failed = { text: "EACCES: permission denied", isError: true };
+		const lines = row(numbered(40), failed);
 		expect(lines.join("")).toContain(`${RED}${DOT}`);
-		expect(visible(lines)).toContain("EACCES: permission denied");
+		const text = visible(lines);
+		expect(text).toContain("line 10");
+		expect(text).toContain("EACCES: permission denied");
+		expect(text.join("\n")).not.toContain("… +37 lines");
 	});
 
 	it("content stock rejects still shows stock's error", () => {
