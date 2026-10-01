@@ -12,8 +12,8 @@ export function liveRow(definition: ToolDefinition<any, any, any>, args: Record<
 	row.markExecutionStarted();
 	return {
 		render: (width = 200) => row.render(width),
-		output: (text: string, { partial = false, isError = false } = {}) =>
-			row.updateResult({ content: [{ type: "text", text }], isError }, partial),
+		output: (text: string, { partial = false, isError = false, details = undefined as unknown } = {}) =>
+			row.updateResult({ content: [{ type: "text", text }], isError, details }, partial),
 		expand: (on: boolean) => row.setExpanded(on),
 	};
 }
@@ -22,13 +22,13 @@ export function liveRow(definition: ToolDefinition<any, any, any>, args: Record<
 export function renderRow(opts: {
 	definition: ToolDefinition<any, any, any>;
 	args: Record<string, unknown>;
-	result?: { text: string; isError?: boolean };
+	result?: { text: string; isError?: boolean; details?: unknown };
 	partial?: boolean;
 	expanded?: boolean;
 	width?: number;
 }): string[] {
 	const row = liveRow(opts.definition, opts.args);
-	if (opts.result) row.output(opts.result.text, { partial: opts.partial, isError: opts.result.isError });
+	if (opts.result) row.output(opts.result.text, { partial: opts.partial, isError: opts.result.isError, details: opts.result.details });
 	if (opts.expanded) row.expand(true);
 	return row.render(opts.width);
 }

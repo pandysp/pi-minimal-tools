@@ -10,11 +10,14 @@ const FIXTURES = join(REPO, "test/fixtures");
 // so any difference below comes from the extension.
 // Real pi calls the real model: allow minutes, not vitest's default 5 seconds.
 describe("rule 1: the model is sent exactly what it would be sent without the extension", { timeout: 300_000 }, () => {
-	it("a resumed session with bash and read history sends the identical request", async () => {
-		const cwd = tempDir("r71");
+	it("a resumed session with bash and read history sends the identical request, codemode switched on", async () => {
+		// codemode on explicitly, so its description and active state are part of the comparison.
+		const cwd = tempDir("r71", { defaultTools: ["+codemode"] });
 		const run = async (withExtension: boolean) =>
 			(await runPi({ cwd, prompt: "Reply with just: ok", withExtension, session: copySession("session-bash-read.jsonl", cwd) })).requests;
-		expect(await run(true)).toEqual(await run(false));
+		const [ext, stock] = [await run(true), await run(false)];
+		expect(JSON.stringify(stock)).toContain('"codemode"');
+		expect(ext).toEqual(stock);
 	});
 
 	it("switching tools off in settings stays respected (no tool gets switched back on)", async () => {
@@ -23,6 +26,26 @@ describe("rule 1: the model is sent exactly what it would be sent without the ex
 		const run = async (withExtension: boolean) => (await runPi({ cwd, prompt: "Reply with just: ok", withExtension })).requests;
 		const [stock, ext] = [await run(false), await run(true)];
 		expect(ext).toEqual(stock);
+	});
+
+	it("built-in codemode switched off in settings stays off", async () => {
+		const cwd = tempDir("no-codemode", { extensions: ["-builtin:codemode"], defaultTools: ["+codemode"] });
+		const run = (withExtension: boolean) => runPi({ cwd, prompt: "Reply with just: ok", withExtension });
+		const [stock, ext] = [await run(false), await run(true)];
+		// The extension does not bring codemode back, not even as an inactive tool.
+		expect(ext.codemode).toEqual(["none"]);
+		expect(JSON.stringify(stock.requests)).not.toContain('"codemode"');
+		expect(ext.requests).toEqual(stock.requests);
+	});
+
+	it("a codemode script runs its tools and stores values as without the extension", async () => {
+		const prompt =
+			'Use the codemode tool exactly once with this script: store("mark", 42); const r = await tools.bash({ command: "echo cm-$((6*7))" }); return r.output + "stored=" + load("mark"); Then reply with just: done';
+		for (const withExtension of [false, true]) {
+			const cwd = tempDir(withExtension ? "cm-ext" : "cm-stock", { defaultTools: ["+codemode"] });
+			const { requests } = await runPi({ cwd, prompt, withExtension });
+			expect(JSON.stringify(requests.at(-1)), withExtension ? "extension" : "stock").toMatch(/cm-42.*stored=42/s);
+		}
 	});
 
 	it("bash honours the user's shell, command prefix and session directory", async () => {

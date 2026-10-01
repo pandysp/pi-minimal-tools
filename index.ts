@@ -6,6 +6,7 @@ import {
 	SettingsManager,
 } from "@earendil-works/pi-coding-agent";
 import { claudeBash } from "./bash-row";
+import { shortCodemode, stockCodemode } from "./codemode-row";
 import { withDot } from "./dotted-row";
 import { replyDot } from "./reply-dot";
 
@@ -26,6 +27,8 @@ export default function (pi: ExtensionAPI) {
 		pi.registerTool(claudeBash(bash));
 		pi.registerTool(withDot(createWriteToolDefinition(ctx.cwd)));
 		pi.registerTool(withDot(createEditToolDefinition(ctx.cwd)));
+		// Only when pi has codemode at all: the built-in can be switched off in settings.
+		if (pi.getAllTools().some((tool) => tool.name === "codemode")) pi.registerTool(shortCodemode(stockCodemode(pi)));
 		pi.setActiveTools(active);
 	});
 }

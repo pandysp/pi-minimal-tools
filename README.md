@@ -6,12 +6,14 @@ Claude Code-style tool rows for [pi](https://pi.dev): the rows that matter stand
 |---|---|
 | `$ cat notes.md` + the last 5 lines + `Took 0.0s` | `Read 1 file (ctrl+o to expand)` |
 | `$ seq 1 20` + the last 5 lines + `Took 0.0s` | `⏺ $ seq 1 20` + the first 3 lines + `… +17 lines (ctrl+o to expand)` |
+| `codemode` + up to 10 lines of script | `⏺ codemode` + the first 2 lines of the script, then `…` |
 
 - **Look-around commands** (a single `ls`, `cat`, `head`, `tail`, `wc`, `grep`, `rg` or `find`) collapse to one grey line: `Listed 1 directory`, `Read 1 file`, `Searched for 1 pattern`.
 - **Everything else** gets a full row with the first 3 output lines.
 - **Long commands are cut like in Claude Code:** at most 2 lines and 160 characters, then `…`.
+- **codemode scripts are cut the same way.** The list of tool calls the script made and its output stay as in stock pi.
 - **Failures are always shown in full**, with a red dot. A `grep` or `rg` that simply found nothing is not a failure.
-- **Claude Code's dots:** green = succeeded, red = failed, grey = running, on bash, write and edit rows, plus a dot in front of agent replies that start with plain text.
+- **Claude Code's dots:** green = succeeded, red = failed, grey = running, on bash, write, edit and codemode rows, plus a dot in front of agent replies that start with plain text.
 - **Ctrl+O** shows pi's normal full view.
 
 Only the display changes. The model gets exactly the same tools, instructions and results as without the extension, which the tests check against real pi.
@@ -22,7 +24,7 @@ Only the display changes. The model gets exactly the same tools, instructions an
 pi install git:github.com/pandysp/pi-minimal-tools
 ```
 
-Tested with pi 0.87.1, alongside `@gotgenes/pi-anthropic-auth` and `pi-hydra`.
+Tested with pi 1.0.0, alongside `@gotgenes/pi-anthropic-auth` and `pi-hydra`.
 
 ## Good to know
 
@@ -30,7 +32,8 @@ Tested with pi 0.87.1, alongside `@gotgenes/pi-anthropic-auth` and `pi-hydra`.
 - **In practice, summaries show up less than you might expect.** Models often chain commands (`cd … && git status && cat …`), and chains get a full row. See decision A29.
 - **pi hides crashes in tool drawing code** and quietly shows only the tool name. This extension shows a red `pi-minimal-tools: drawing the … row failed: …` line instead. If you see one after a pi update, the extension needs updating.
 - **Commands you type yourself** with `!` or `!!` keep pi's normal display: pi draws them with a separate component, which this extension leaves alone.
-- **If another extension also takes over `bash`, `write` or `edit`**, pi uses the first one registered, without a warning.
+- **A codemode script's dot shows whether the script failed, not whether every tool call in it did.** A failed call inside a script that still finishes shows as a red `✗` line under a green dot; its error text appears with Ctrl+O, as in stock pi.
+- **If another extension also takes over `bash`, `write`, `edit` or `codemode`**, pi uses the first one registered, without a warning. If pi's own codemode is switched off in settings, it stays off.
 
 ## Decisions
 

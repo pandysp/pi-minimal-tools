@@ -55,7 +55,7 @@ export interface PiRun {
  * plus a payload-capturing extension and, optionally, ours. Returns every request pi sent the model
  * and everything pi printed (warnings go to stderr).
  */
-export async function runPi({ cwd, prompt, withExtension, session }: PiRun): Promise<{ requests: unknown[]; printed: string }> {
+export async function runPi({ cwd, prompt, withExtension, session }: PiRun): Promise<{ requests: unknown[]; printed: string; codemode: string[] }> {
 	const captureFile = join(cwd, `payloads-${withExtension ? "ext" : "stock"}-${Date.now()}.jsonl`);
 	const args = ["-p", "-e", CAPTURE_EXTENSION];
 	if (withExtension) args.push("-e", EXTENSION);
@@ -70,11 +70,15 @@ export async function runPi({ cwd, prompt, withExtension, session }: PiRun): Pro
 		child.stdin?.end();
 	});
 	if (!existsSync(captureFile)) throw new Error("pi sent no request to the model");
-	const captured: { bash: string; payload: unknown }[] = readFileSync(captureFile, "utf8").trim().split("\n").map((line) => JSON.parse(line));
-	// Prove which side was measured: pi's own bash, or this checkout's. Any other copy fails loudly.
-	const expected = (bash: string) => (withExtension ? bash.startsWith(REPO) : bash === "<builtin:bash>");
-	for (const { bash } of captured) {
-		if (!expected(bash)) throw new Error(`expected ${withExtension ? "this checkout's" : "pi's own"} bash, but pi used: ${bash}`);
+	const captured: { bash: string; codemode: string; payload: unknown }[] = readFileSync(captureFile, "utf8").trim().split("\n").map((line) => JSON.parse(line));
+	// Prove which side was measured: pi's own tools, or this checkout's. Any other copy fails loudly.
+	for (const tool of ["bash", "codemode"] as const) {
+		// "none": codemode switched off in settings, on both sides (a payload check then shows it is absent).
+		const expected = (source: string) =>
+			(tool === "codemode" && source === "none") || (withExtension ? source.startsWith(REPO) : source === `builtin:${tool}`);
+		for (const c of captured) {
+			if (!expected(c[tool])) throw new Error(`expected ${withExtension ? "this checkout's" : "pi's own"} ${tool}, but pi used: ${c[tool]}`);
+		}
 	}
-	return { requests: captured.map((c) => c.payload), printed };
+	return { requests: captured.map((c) => c.payload), printed, codemode: captured.map((c) => c.codemode) };
 }
