@@ -38,9 +38,9 @@ describe("rule 1: the model is sent exactly what it would be sent without the ex
 		expect(ext.requests).toEqual(stock.requests);
 	});
 
-	it("a codemode script runs its tools and stores values as without the extension", async () => {
+	it("codemode scripts run their tools and keep stored values across calls, as without the extension", async () => {
 		const prompt =
-			'Use the codemode tool exactly once with this script: store("mark", 42); const r = await tools.bash({ command: "echo cm-$((6*7))" }); return r.output + "stored=" + load("mark"); Then reply with just: done';
+			'Use the codemode tool twice, one call after the other. First script: store("mark", 42); const r = await tools.bash({ command: "echo cm-$((6*7))" }); return r.output; Second script: return "stored=" + load("mark"); Then reply with just: done';
 		for (const withExtension of [false, true]) {
 			const cwd = tempDir(withExtension ? "cm-ext" : "cm-stock", { defaultTools: ["+codemode"] });
 			const { requests } = await runPi({ cwd, prompt, withExtension });

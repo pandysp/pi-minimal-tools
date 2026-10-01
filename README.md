@@ -11,8 +11,8 @@ Claude Code-style tool rows for [pi](https://pi.dev): the rows that matter stand
 - **Look-around commands** (a single `ls`, `cat`, `head`, `tail`, `wc`, `grep`, `rg` or `find`) collapse to one grey line: `Listed 1 directory`, `Read 1 file`, `Searched for 1 pattern`.
 - **Everything else** gets a full row with the first 3 output lines.
 - **Long commands are cut like in Claude Code:** at most 2 lines and 160 characters, then `…`.
-- **codemode scripts are cut the same way.** The list of tool calls the script made and its output stay as in stock pi.
-- **Failures are always shown in full**, with a red dot. A `grep` or `rg` that simply found nothing is not a failure.
+- **codemode scripts are cut the same way.** The list of tool calls the script made and its output are drawn by stock pi, without pi's frame like all rows here.
+- **Failed bash, write and edit calls are always shown in full**, with a red dot. A `grep` or `rg` that simply found nothing is not a failure. Inside codemode scripts, see below.
 - **Claude Code's dots:** green = succeeded, red = failed, grey = running, on bash, write, edit and codemode rows, plus a dot in front of agent replies that start with plain text.
 - **Ctrl+O** shows pi's normal full view.
 

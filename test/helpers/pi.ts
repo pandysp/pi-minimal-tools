@@ -70,7 +70,7 @@ export async function runPi({ cwd, prompt, withExtension, session }: PiRun): Pro
 		child.stdin?.end();
 	});
 	if (!existsSync(captureFile)) throw new Error("pi sent no request to the model");
-	const captured: { bash: string; codemode: string; payload: unknown }[] = readFileSync(captureFile, "utf8").trim().split("\n").map((line) => JSON.parse(line));
+	const captured: { bash: string; codemode: string; codemodeSchemaIsStock: boolean; payload: unknown }[] = readFileSync(captureFile, "utf8").trim().split("\n").map((line) => JSON.parse(line));
 	// Prove which side was measured: pi's own tools, or this checkout's. Any other copy fails loudly.
 	for (const tool of ["bash", "codemode"] as const) {
 		// "none": codemode switched off in settings, on both sides (a payload check then shows it is absent).
@@ -80,5 +80,6 @@ export async function runPi({ cwd, prompt, withExtension, session }: PiRun): Pro
 			if (!expected(c[tool])) throw new Error(`expected ${withExtension ? "this checkout's" : "pi's own"} ${tool}, but pi used: ${c[tool]}`);
 		}
 	}
+	if (captured.some((c) => !c.codemodeSchemaIsStock)) throw new Error("the codemode tool in use does not have pi's own schema object; pi's MCP extension would not recognise it");
 	return { requests: captured.map((c) => c.payload), printed, codemode: captured.map((c) => c.codemode) };
 }
