@@ -1,7 +1,7 @@
 {
 	"name": "pi-minimal-tools",
 	"version": "0.1.0",
-	"description": "Claude Code-style tool rows for pi: look-around commands collapse to one line, real work gets a short preview",
+	"description": "Claude Code-style tool rows for pi: Ctrl+O first hides finished tool rows, look-around commands collapse to one line, real work gets a short preview",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/pandysp/pi-minimal-tools.git"
@@ -13,7 +13,10 @@
 	],
 	"license": "MIT",
 	"type": "module",
-	"private": true,
+	"files": [
+		"*.ts",
+		"CHANGELOG.md"
+	],
 	"pi": {
 		"extensions": [
 			"./index.ts"
@@ -21,11 +24,20 @@
 	},
 	"scripts": {
 		"check": "tsc",
-		"test": "vitest run"
+		"test": "vitest run",
+		"test:unit": "vitest run --exclude '**/*.e2e.test.ts'"
 	},
 	"peerDependencies": {
 		"@earendil-works/pi-coding-agent": ">=1.0.3",
-		"@earendil-works/pi-tui": "*"
+		"@earendil-works/pi-tui": ">=1.0.3"
+	},
+	"peerDependenciesMeta": {
+		"@earendil-works/pi-coding-agent": {
+			"optional": true
+		},
+		"@earendil-works/pi-tui": {
+			"optional": true
+		}
 	},
 	"devDependencies": {
 		"@earendil-works/pi-coding-agent": "^1.0.3",
