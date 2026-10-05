@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.4
+
 - Searches, listings and reads (the `grep`, `find` and `ls` tools, and a single `ls`, `cat`, `grep` and the like in bash) show their grey summary line from the start, like Claude Code: `Searching for 1 pattern…` while running, `Searched for 1 pattern` once done. Before, pi's own line switched to the summary the moment the call finished. A failure still turns into the full red row.
 
 ## 0.1.3
