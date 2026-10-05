@@ -2,7 +2,7 @@ import { createBashToolDefinition } from "@earendil-works/pi-coding-agent";
 import { DOT, GREEN, RED, GREY, plain } from "./helpers/claude-code";
 import { describe, expect, it } from "vitest";
 import { claudeBash } from "../bash-row";
-import { renderRow } from "./helpers/row";
+import { liveRow, renderRow } from "./helpers/row";
 
 
 const bash = () => ({ name: "bash", ...claudeBash(createBashToolDefinition("/tmp")) });
@@ -68,8 +68,23 @@ describe("bash rows", () => {
 		expect(lines.join("")).not.toContain(DOT);
 	});
 
-	it("look-around while running: shown like any running command", () => {
-		expect(visible(row("ls -la"))).toEqual([`${DOT} $ ls -la`, "  Running…"]);
+	it("look-around while running: already its summary line, in the -ing form; the past form once done", () => {
+		expect(visible(row("ls -la"))).toEqual(["  Listing 1 directory… (ctrl+o to expand)"]);
+		expect(visible(row("cat notes.md", { text: "line 1\nline 2", isError: false }, false))).toEqual(["  Read 1 file (ctrl+o to expand)"]);
+	});
+
+	it("look-around while the model is still writing the command: the summary at once; a pipe added later makes it a full row", () => {
+		const r = liveRow({ name: "bash", ...claudeBash(createBashToolDefinition("/tmp")) }, {}, { argsComplete: false });
+		r.streamArgs({ command: "cat notes.md" });
+		expect(visible(r.render())).toEqual(["  Reading 1 file… (ctrl+o to expand)"]);
+		r.completeArgs({ command: "cat notes.md" });
+		expect(visible(r.render())).toEqual(["  Reading 1 file… (ctrl+o to expand)"]);
+		r.output("line 1");
+		expect(visible(r.render())).toEqual(["  Read 1 file (ctrl+o to expand)"]);
+		const piped = liveRow({ name: "bash", ...claudeBash(createBashToolDefinition("/tmp")) }, {}, { argsComplete: false });
+		piped.streamArgs({ command: "cat notes.md" });
+		piped.completeArgs({ command: "cat notes.md | head -3" });
+		expect(visible(piped.render())[0]).toContain("$ cat notes.md | head -3");
 	});
 
 	it("look-around that failed: full row with red dot (Claude Code would hide it)", () => {

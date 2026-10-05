@@ -10,8 +10,8 @@ Claude Code-style tool rows for [pi](https://pi.dev): the rows that matter stand
 | `write run.sh` + the first 10 lines of the file | `⏺ write run.sh` + the first 3 lines + `… +37 lines (ctrl+o to expand)` |
 | `codemode` + up to 10 lines of script | `⏺ codemode` + the first 2 lines of the script, then `…` |
 
-- **Dedicated `grep`, `find` and `ls` tools** collapse to one grey summary line after success. Empty results collapse too. Limited or truncated results keep a yellow `[truncated]` at the start, even in narrow panes; Ctrl+O shows the original notices and results. Running calls keep stock pi’s drawing with a grey dot. Failures get a red dot and show the whole error without expanding.
-- **Shell look-around commands** (a single `ls`, `cat`, `head`, `tail`, `wc`, `grep`, `rg` or `find` inside the `bash` tool) collapse to one grey line: `Listed 1 directory`, `Read 1 file`, `Searched for 1 pattern`. The dedicated `read` tool stays unchanged.
+- **Dedicated `grep`, `find` and `ls` tools** are one grey summary line from the start: `Searching for 1 pattern…` while they run, `Searched for 1 pattern` once done. Empty results collapse too. Limited or truncated results keep a yellow `[truncated]` at the start, even in narrow panes; Ctrl+O shows the original notices and results. Running calls keep stock pi’s drawing with a grey dot. Failures get a red dot and show the whole error without expanding.
+- **Shell look-around commands** (a single `ls`, `cat`, `head`, `tail`, `wc`, `grep`, `rg` or `find` inside the `bash` tool) are one grey line from the start: `Listing 1 directory…`, `Reading 1 file…` or `Searching for 1 pattern…` while they run, then `Listed 1 directory`, `Read 1 file` or `Searched for 1 pattern`. The dedicated `read` tool stays unchanged.
 - **Other shell commands** get a full row with the first 3 output lines. A written file shows its first 3 lines the same way.
 - **Long commands are cut like in Claude Code:** at most 2 lines and 160 characters, then `…`.
 - **codemode scripts are cut the same way.** The list of tool calls the script made and its output are drawn by stock pi, without pi's frame like all rows here.
