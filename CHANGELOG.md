@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.5
+
 - Level 1 hides the agent's `Thinking...` once the same message goes on with text or a tool call, without leaving a blank line. The thinking still in progress stays visible, like the latest call. Levels 2 and 3 are unchanged. If a pi update removes what this relies on, the session starts with an error.
 
 ## 0.1.4
