@@ -8,11 +8,17 @@ import {
 import { claudeBash } from "./bash-row";
 import { shortCodemode, stockCodemode } from "./codemode-row";
 import { withDot } from "./dotted-row";
+import { LOOK_SUMMARY, shortLook } from "./look-row";
 import { replyDot } from "./reply-dot";
 import { shortWrite } from "./write-row";
 
 export default function (pi: ExtensionAPI) {
 	pi.registerMarkdownTransformer(replyDot);
+	pi.registerToolRenderer((name, next) => {
+		const stock = next();
+		if (!Object.hasOwn(LOOK_SUMMARY, name) || !stock) return stock;
+		return shortLook(name as keyof typeof LOOK_SUMMARY, stock);
+	});
 
 	pi.on("session_start", (_event, ctx) => {
 		// Build the tools exactly as stock pi does (agent-session.js): same directory; bash gets its

@@ -1,7 +1,7 @@
 import { execFile, execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { afterAll } from "vitest";
 
 export const REPO = resolve(import.meta.dirname, "../..");
@@ -48,6 +48,7 @@ export interface PiRun {
 	prompt: string;
 	withExtension: boolean;
 	session?: string;
+	flags?: string[];
 }
 
 /**
@@ -55,11 +56,14 @@ export interface PiRun {
  * plus a payload-capturing extension and, optionally, ours. Returns every request pi sent the model
  * and everything pi printed (warnings go to stderr).
  */
-export async function runPi({ cwd, prompt, withExtension, session }: PiRun): Promise<{ requests: unknown[]; printed: string; codemode: string[] }> {
+export async function runPi({ cwd, prompt, withExtension, session, flags = [] }: PiRun): Promise<{ requests: unknown[]; printed: string; codemode: string[] }> {
 	const captureFile = join(cwd, `payloads-${withExtension ? "ext" : "stock"}-${Date.now()}.jsonl`);
-	const args = ["-p", "-e", CAPTURE_EXTENSION];
+	const args = ["-p", "-e", CAPTURE_EXTENSION, ...flags];
+	// A rate-limited default provider should not block verifying another configured model.
+	if (process.env.PI_TEST_MODEL) args.push("--model", process.env.PI_TEST_MODEL);
 	if (withExtension) args.push("-e", EXTENSION);
-	args.push(...(session ? ["--session", session] : ["--no-session"]), prompt);
+	// Stock and extension runs use the same session identity, including provider cache keys.
+	args.push(...(session ? ["--session", session] : ["--no-session", "--session-id", basename(cwd)]), prompt);
 	const printed = await new Promise<string>((done, fail) => {
 		// pi -p reads extra prompt text from a piped stdin and waits for it to close.
 		const child = execFile("pi", args, { cwd, env: { ...process.env, CAPTURE_FILE: captureFile }, timeout: 120_000 }, (error, stdout, stderr) =>
@@ -70,7 +74,7 @@ export async function runPi({ cwd, prompt, withExtension, session }: PiRun): Pro
 		child.stdin?.end();
 	});
 	if (!existsSync(captureFile)) throw new Error("pi sent no request to the model");
-	const captured: { bash: string; codemode: string; codemodeSchemaIsStock: boolean; payload: unknown }[] = readFileSync(captureFile, "utf8").trim().split("\n").map((line) => JSON.parse(line));
+	const captured: { bash: string; codemode: string; codemodeSchemaIsStock: boolean; lookSources: Record<string, string>; payload: unknown }[] = readFileSync(captureFile, "utf8").trim().split("\n").map((line) => JSON.parse(line));
 	// Prove which side was measured: pi's own tools, or this checkout's. Any other copy fails loudly.
 	for (const tool of ["bash", "codemode"] as const) {
 		// "none": codemode switched off in settings, on both sides (a payload check then shows it is absent).
@@ -78,6 +82,11 @@ export async function runPi({ cwd, prompt, withExtension, session }: PiRun): Pro
 			(tool === "codemode" && source === "none") || (withExtension ? source.startsWith(REPO) : source === `builtin:${tool}`);
 		for (const c of captured) {
 			if (!expected(c[tool])) throw new Error(`expected ${withExtension ? "this checkout's" : "pi's own"} ${tool}, but pi used: ${c[tool]}`);
+		}
+	}
+	for (const c of captured) {
+		for (const name of ["grep", "find", "ls"]) {
+			if (c.lookSources[name] !== `builtin:${name}`) throw new Error(`display-only look rows must keep pi's own ${name}, but pi used: ${c.lookSources[name]}`);
 		}
 	}
 	if (captured.some((c) => !c.codemodeSchemaIsStock)) throw new Error("the codemode tool in use does not have pi's own schema object; pi's MCP extension would not recognise it");

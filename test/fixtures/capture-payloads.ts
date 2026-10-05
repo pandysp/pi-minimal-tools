@@ -16,6 +16,7 @@ export default function (pi: ExtensionAPI) {
 		createCodemodeExtension()({ ...pi, registerTool: (tool: { parameters: unknown }) => (stock = tool) } as unknown as ExtensionAPI);
 		const codemode = pi.getAllTools().find((tool) => tool.name === "codemode");
 		const codemodeSchemaIsStock = codemode === undefined || codemode.parameters === stock?.parameters;
-		appendFileSync(file, `${JSON.stringify({ bash: source("bash"), codemode: source("codemode"), codemodeSchemaIsStock, payload: event.payload })}\n`);
+		const lookSources = Object.fromEntries(["grep", "find", "ls"].map((name) => [name, source(name)]));
+		appendFileSync(file, `${JSON.stringify({ bash: source("bash"), codemode: source("codemode"), codemodeSchemaIsStock, lookSources, payload: event.payload })}\n`);
 	});
 }

@@ -20,6 +20,15 @@ describe("rule 1: the model is sent exactly what it would be sent without the ex
 		expect(ext).toEqual(stock);
 	});
 
+	it("dedicated grep/find/ls declarations and recorded results are identical with the tools enabled", async () => {
+		const cwd = tempDir("look-tools", { defaultTools: ["+codemode", "+grep", "+find", "+ls"] });
+		const run = async (withExtension: boolean) =>
+			(await runPi({ cwd, prompt: "Reply with just: ok", withExtension, session: copySession("session-look.jsonl", cwd) })).requests;
+		const [stock, ext] = [await run(false), await run(true)];
+		for (const name of ["grep", "find", "ls"]) expect(JSON.stringify(stock)).toContain(`"name":"${name}"`);
+		expect(ext).toEqual(stock);
+	});
+
 	it("switching tools off in settings stays respected (no tool gets switched back on)", async () => {
 		// Same directory for both runs: its path is part of the system prompt.
 		const cwd = tempDir("r74", { defaultTools: ["read"] });
@@ -72,9 +81,12 @@ describe("rule 1: the model is sent exactly what it would be sent without the ex
 		// Same folder for both runs. Stock runs first with valid project settings (only switching off an
 		// installed copy of this package); a broken file makes pi fall back to exactly those defaults.
 		const cwd = tempDir("broken-settings");
-		const stock = await runPi({ cwd, prompt: "Reply with just: ok", withExtension: false });
+		// All extensions still load, but this test isolates settings recovery from Hydra’s
+		// background model calls/shutdown. The other tests retain the user’s active heads.
+		const flags = ["--hydra-heads", "none"];
+		const stock = await runPi({ cwd, prompt: "Reply with just: ok", withExtension: false, flags });
 		writeFileSync(join(cwd, ".pi/settings.json"), "{ broken json");
-		const ext = await runPi({ cwd, prompt: "Reply with just: ok", withExtension: true });
+		const ext = await runPi({ cwd, prompt: "Reply with just: ok", withExtension: true, flags });
 		// Stock pi's own warning (measured for stock in decision A18) still appears with the extension.
 		expect(ext.printed).toContain("Warning: Invalid settings file");
 		expect(ext.requests).toEqual(stock.requests);

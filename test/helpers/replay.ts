@@ -10,11 +10,11 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * return the whole screen, colours included, once it has stopped changing. The window is tall enough
  * for the whole session: in fullscreen mode pi keeps no scrollback.
  */
-export async function replay(fixture: string, withExtension: boolean, cwd = tempDir("replay")): Promise<string[]> {
+export async function replay(fixture: string, withExtension: boolean, cwd = tempDir("replay"), { expanded = false, height = 300 } = {}): Promise<string[]> {
 	const session = copySession(fixture, cwd);
 	const name = `pct-replay-${process.pid}-${Date.now()}`;
 	const command = `pi ${withExtension ? `-e ${EXTENSION} ` : ""}--session ${session}`;
-	tmux("new-session", "-d", "-s", name, "-x", "200", "-y", "300", "-c", cwd, command);
+	tmux("new-session", "-d", "-s", name, "-x", "200", "-y", String(height), "-c", cwd, command);
 	try {
 		let last = "";
 		let stable = 0;
@@ -24,6 +24,11 @@ export async function replay(fixture: string, withExtension: boolean, cwd = temp
 			const screen = tmux("capture-pane", "-e", "-p", "-S", "-3000", "-t", name);
 			stable = screen === last && screen.includes("hydra") ? stable + 1 : 0;
 			last = screen;
+		}
+		if (expanded) {
+			tmux("send-keys", "-t", name, "C-o");
+			await sleep(1000);
+			last = tmux("capture-pane", "-e", "-p", "-S", "-3000", "-t", name);
 		}
 		return last.split("\n");
 	} finally {
