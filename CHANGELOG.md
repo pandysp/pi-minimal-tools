@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.1
+
 - Level 1 of Ctrl+O no longer hides finished calls without a trace: each run of tool calls becomes one summary line, such as `Ran 3 commands (2 failed), read 1 file`. Failed calls fold into it too. Your messages and the agent's text start a new line; a running call shows its own row until it finishes.
 
 ## 0.1.0
