@@ -1,11 +1,10 @@
 import type { ExtensionAPI, Theme, ToolRenderers } from "@earendil-works/pi-coding-agent";
-import { Box, type Component } from "@earendil-works/pi-tui";
-
-type RenderResult = NonNullable<ToolRenderers["renderResult"]>;
-export type Failed = (result: Parameters<RenderResult>[0], ctx: Parameters<RenderResult>[3]) => boolean;
+import { Box, type Component, truncateToWidth } from "@earendil-works/pi-tui";
+import { dot } from "./dots";
+import { groupOf, summarize, useSession } from "./groups";
 
 /**
- * Three levels on pi's own expand key (Ctrl+O): 1 hides finished successful rows, 2 is pi's collapsed
+ * Three levels on pi's own expand key (Ctrl+O): 1 folds finished calls into one summary line per group, 2 is pi's collapsed
  * view, 3 its expanded view. pi only knows collapsed and expanded, and an extension cannot take over its
  * key without a keybindings.json change. So we watch pi's flag around each key press and turn each flip
  * into one step: 1 → 2 → 3 → 1. Whatever key or menu flips the flag, the cycle follows.
@@ -18,6 +17,7 @@ export function watchLevels(pi: ExtensionAPI) {
 		if (ctx.mode !== "tui") return;
 		// pi keeps its flag across /new, /resume and /reload; a new session starts hidden unless expanded.
 		level = ctx.ui.getToolsExpanded() ? 3 : 1;
+		useSession(ctx.sessionManager);
 		ctx.ui.onTerminalInput(() => {
 			const before = ctx.ui.getToolsExpanded();
 			// Runs after the focused component has handled the key and before pi draws the next frame
@@ -39,18 +39,31 @@ const STATE = Symbol("levels");
 interface RowState {
 	call?: Component;
 	result?: Component;
-	failed?: boolean;
 	frame?: Box;
 }
 const rowState = (state: Record<PropertyKey, unknown>) => (state[STATE] ??= {}) as RowState;
-const hidden = (row: RowState, ctx: { isPartial: boolean }) => level === 1 && !ctx.isPartial && !row.failed;
 
 /**
- * A tool row that disappears at level 1 once it has succeeded. Running and failed rows stay.
- * Rows always draw in pi's "self" shell, because only that one draws nothing for an empty row; pi's default
- * shell would leave a blank line. Tools that use the default shell get an identical frame drawn by us.
+ * At level 1 a saved, finished call is folded into its group: the group's first finished call draws the
+ * summary line, the others draw nothing. Running calls and calls not saved yet draw their normal row.
+ * Undefined means: draw normally.
  */
-export function hideable(renderers: ToolRenderers, failed: Failed = (_result, ctx) => ctx.isError): ToolRenderers {
+function folded(toolCallId: string, theme: Theme): string[] | undefined {
+	if (level !== 1) return undefined;
+	const group = groupOf(toolCallId);
+	if (!group || group.calls.get(toolCallId)?.outcome === "running") return undefined;
+	const head = group.ids.find((id) => group.calls.get(id)?.outcome !== "running");
+	if (head !== toolCallId) return [];
+	const { text, failed } = summarize(group.ids.map((id) => group.calls.get(id)!));
+	return [`${dot(failed ? "failed" : "succeeded")} ${text}${theme.fg("dim", " (ctrl+o to expand)")}`];
+}
+
+/**
+ * A tool row that folds into its group's summary at level 1 (see folded). Rows always draw in pi's "self"
+ * shell, because only that one draws nothing for an empty row; pi's default shell would leave a blank line.
+ * Tools that use the default shell get an identical frame drawn by us.
+ */
+export function hideable(renderers: ToolRenderers): ToolRenderers {
 	const call = renderers.renderCall!;
 	const result = renderers.renderResult!;
 	const ownShell = renderers.renderShell === "self";
@@ -64,20 +77,23 @@ export function hideable(renderers: ToolRenderers, failed: Failed = (_result, ct
 			row.call = undefined;
 			row.call = call(args, theme, { ...ctx, lastComponent: previous });
 			return {
-				render: (width) => (hidden(row, ctx) ? [] : ownShell ? row.call!.render(width) : framed(row, theme, ctx).render(width)),
+				render: (width) => {
+					const summary = folded(ctx.toolCallId, theme);
+					if (summary) return summary.map((line) => truncateToWidth(line, width));
+					return ownShell ? row.call!.render(width) : framed(row, theme, ctx).render(width);
+				},
 				invalidate: () => row.call?.invalidate(),
 			};
 		},
 		renderResult(res, options, theme, ctx) {
 			const row = rowState(ctx.state);
-			row.failed = failed(res, ctx);
 			// Never draw an older result: if this renderer throws, pi draws its generic result instead.
 			const previous = row.result;
 			row.result = undefined;
 			row.result = result(res, options, theme, { ...ctx, lastComponent: previous });
 			// In our frame the result is drawn together with the call, unless the call renderer threw.
 			if (!ownShell && row.call) return { render: () => [], invalidate() {} };
-			return { render: (width) => (hidden(row, ctx) ? [] : row.result!.render(width)), invalidate: () => row.result?.invalidate() };
+			return { render: (width) => (folded(ctx.toolCallId, theme) ? [] : row.result!.render(width)), invalidate: () => row.result?.invalidate() };
 		},
 	};
 }

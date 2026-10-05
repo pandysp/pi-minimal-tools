@@ -5,9 +5,9 @@ import type { TUI } from "@earendil-works/pi-tui";
 initTheme("dark");
 
 /** pi's row component for step-by-step driving (running → streaming → finished → expand → collapse). */
-export function liveRow(definition: ToolRenderers & { name: string }, args: Record<string, unknown>, { argsComplete = true } = {}) {
+export function liveRow(definition: ToolRenderers & { name: string }, args: Record<string, unknown>, { argsComplete = true, id = "call-1" } = {}) {
 	const ui = { requestRender() {} } as unknown as TUI;
-	const row = new ToolExecutionComponent(definition.name, "call-1", args, undefined, definition, ui, "/tmp");
+	const row = new ToolExecutionComponent(definition.name, id, args, undefined, definition, ui, "/tmp");
 	if (argsComplete) {
 		row.setArgsComplete();
 		row.markExecutionStarted();
