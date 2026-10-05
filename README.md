@@ -24,7 +24,7 @@ Only the display changes. Pi keeps ownership of execution, settings, schemas and
 ## Install
 
 ```sh
-pi install git:github.com/pandysp/pi-minimal-tools
+pi install npm:pi-minimal-tools
 ```
 
 Requires **pi 1.0.3 or newer**. Tested with pi 1.0.3, alongside `@gotgenes/pi-anthropic-auth` and `pi-hydra`.
@@ -48,16 +48,18 @@ Why it looks this way, and where it deliberately differs from Claude Code: [docs
 
 ```sh
 npm install
-npm run check   # types
-npm test        # includes real-pi tests: they call the configured model and may take a few minutes
+npm run check       # types
+npm run test:unit   # what CI runs on every push and pull request
+npm test            # everything, including real-pi tests: they need tmux and a model, and may take a few minutes
 ```
 
-To test with a different configured model without changing your settings:
+A change users notice gets an entry under `Unreleased` in [CHANGELOG.md](CHANGELOG.md), in the same change.
 
-```sh
-PI_TEST_MODEL=openai-codex/gpt-6.1-sol:low npm test
-```
+## Releasing
 
-Comparison runs share one session identity, so even provider cache keys are compared unchanged.
+Pushing a `v<version>` tag makes GitHub Actions publish to npm, with a provenance record and no token. CI cannot run the real-pi tests, so run them before you release.
 
-The real-pi tests need `tmux` and send a few tiny requests to your configured model. For their own runs they switch off this checkout if it is installed (and, when run from a git worktree, the main checkout). Request tests require stock tool identities on both sides; an older installed copy that replaces tools fails loudly. Terminal replays separately prove that our rows load and draw correctly. Keep other installed copies of this package out of test runs, since renderer ownership is not exposed by pi’s extension API.
+1. Run `npm test` locally, real-pi tests included. All must pass.
+2. Move the `Unreleased` entries in `CHANGELOG.md` under the new version, set the same version in `package.json` and `package-lock.json`, and merge that to `main`.
+3. Tag the merge commit and push the tag: `git tag v<version> && git push origin v<version>`.
+4. The `publish` job checks that the tag matches `package.json`, runs the checks, and publishes. `npm view pi-minimal-tools _npmUser` should then name GitHub Actions.
