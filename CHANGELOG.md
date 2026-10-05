@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.3
+
 - The latest call now folds in the same moment the next call or text appears. Before, both showed together for a moment.
 - The level-1 summary line looks like a heading: grey text with a grey ▸, which turns into ▾ when you click it open, and the opened rows are indented below it. Only the failed count is red; one failed call no longer turns the whole line red.
 - Removed the dot in front of the agent's replies.
