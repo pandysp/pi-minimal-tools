@@ -5,7 +5,7 @@ import { claudeBash } from "../bash-row";
 import { renderRow } from "./helpers/row";
 
 
-const bash = () => claudeBash(createBashToolDefinition("/tmp"));
+const bash = () => ({ name: "bash", ...claudeBash(createBashToolDefinition("/tmp")) });
 const numbered = (n: number) => Array.from({ length: n }, (_, i) => `line ${i + 1}`).join("\n");
 const row = (command: string, result?: { text: string; isError?: boolean }, expanded = false) =>
 	renderRow({ definition: bash(), args: { command }, result, expanded });

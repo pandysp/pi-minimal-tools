@@ -7,7 +7,7 @@ import { renderRow } from "./helpers/row";
 
 const numbered = (n: number) => Array.from({ length: n }, (_, i) => `line ${i + 1}`).join("\n");
 const row = (content: unknown, result?: { text: string; isError?: boolean }, expanded = false, path = "notes.txt") =>
-	renderRow({ definition: shortWrite(createWriteToolDefinition("/tmp")), args: { path, content }, result, expanded });
+	renderRow({ definition: { name: "write", ...shortWrite(createWriteToolDefinition("/tmp")) }, args: { path, content }, result, expanded });
 const visible = (lines: string[]) => plain(lines).filter((l) => l.trim() !== "");
 const WROTE = { text: "Successfully wrote 40 bytes to notes.txt" };
 
@@ -20,7 +20,7 @@ describe("write rows", () => {
 
 	it("short content: exactly stock's row with the dot", () => {
 		const ours = row("a\nb\nc", WROTE);
-		const theirs = renderRow({ definition: withDot(createWriteToolDefinition("/tmp")), args: { path: "notes.txt", content: "a\nb\nc" }, result: WROTE });
+		const theirs = renderRow({ definition: { name: "write", ...withDot("write", createWriteToolDefinition("/tmp")) }, args: { path: "notes.txt", content: "a\nb\nc" }, result: WROTE });
 		expect(ours).toEqual(theirs);
 	});
 

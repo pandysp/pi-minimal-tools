@@ -1,11 +1,11 @@
 import { initTheme, ToolExecutionComponent } from "@earendil-works/pi-coding-agent";
-import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
+import type { ToolRenderers } from "@earendil-works/pi-coding-agent";
 import type { TUI } from "@earendil-works/pi-tui";
 
 initTheme("dark");
 
 /** pi's row component for step-by-step driving (running → streaming → finished → expand → collapse). */
-export function liveRow(definition: ToolDefinition<any, any, any>, args: Record<string, unknown>, { argsComplete = true } = {}) {
+export function liveRow(definition: ToolRenderers & { name: string }, args: Record<string, unknown>, { argsComplete = true } = {}) {
 	const ui = { requestRender() {} } as unknown as TUI;
 	const row = new ToolExecutionComponent(definition.name, "call-1", args, undefined, definition, ui, "/tmp");
 	if (argsComplete) {
@@ -29,7 +29,7 @@ export function liveRow(definition: ToolDefinition<any, any, any>, args: Record<
 
 /** Draw a row once: optional result, optionally expanded. Returns the rendered lines. */
 export function renderRow(opts: {
-	definition: ToolDefinition<any, any, any>;
+	definition: ToolRenderers & { name: string };
 	args: Record<string, unknown>;
 	result?: { text: string; isError?: boolean; details?: unknown };
 	partial?: boolean;

@@ -1,12 +1,11 @@
-import type { createBashToolDefinition } from "@earendil-works/pi-coding-agent";
+import type { ToolRenderers } from "@earendil-works/pi-coding-agent";
 import { type Component, Text, truncateToWidth } from "@earendil-works/pi-tui";
 import { type CommandKind, classifyCommand } from "./classify";
 import { dot } from "./dots";
 import { loud } from "./loud";
 
-type BashDefinition = ReturnType<typeof createBashToolDefinition>;
-type RenderCall = NonNullable<BashDefinition["renderCall"]>;
-type RenderResult = NonNullable<BashDefinition["renderResult"]>;
+type RenderCall = NonNullable<ToolRenderers["renderCall"]>;
+type RenderResult = NonNullable<ToolRenderers["renderResult"]>;
 type RenderContext = Parameters<RenderCall>[2];
 type BashResult = Parameters<RenderResult>[0];
 
@@ -38,7 +37,7 @@ const text = (content: string, width: number) => new Text(content, 0, 0).render(
  * Collapsed: our header with the dot, then stock's live output tail while running and our summary line or
  * 3-line preview when done. Expanded (Ctrl+O): stock pi's row, unchanged.
  */
-export function claudeBash(stock: BashDefinition): BashDefinition {
+export function claudeBash(stock: ToolRenderers): ToolRenderers {
 	const stockCall = stock.renderCall!;
 	const stockResult = stock.renderResult!;
 	// Stock renderers reuse their own previous component; never hand them ours.
@@ -46,7 +45,6 @@ export function claudeBash(stock: BashDefinition): BashDefinition {
 	const rowState = (ctx: RenderContext) => ctx.state as RowState;
 
 	return {
-		...stock,
 		// No frame: pi's box adds a blank line above and below every row, which dwarfs a one-line summary.
 		renderShell: "self",
 		renderCall: loud("bash", (args, theme, ctx) => {
@@ -58,7 +56,7 @@ export function claudeBash(stock: BashDefinition): BashDefinition {
 				}
 				const colour = outcome === "succeeded" || outcome === "failed" ? outcome : "running";
 				// The command is undefined while the model is still typing it; stock shows "$ ..." then too.
-				const command = theme.fg("toolTitle", theme.bold(`$ ${shortCommand(args.command ?? "...")}`));
+				const command = theme.fg("toolTitle", theme.bold(`$ ${shortCommand((args as { command?: string } | undefined)?.command ?? "...")}`));
 				// Drawn 2 columns narrower, so wrapped lines hang under the command instead of under the dot.
 				const header = text(command, width - 2).map((l, i) => (i === 0 ? `${dot(colour)} ${l}` : `  ${l}`));
 				const running = outcome === undefined ? [`  ${theme.fg("muted", "Running…")}`] : [];
@@ -67,7 +65,7 @@ export function claudeBash(stock: BashDefinition): BashDefinition {
 		}),
 
 		renderResult: loud("bash", (result, options, theme, ctx) => {
-			const command = ctx.args?.command ?? "";
+			const command = (ctx.args as { command?: string } | undefined)?.command ?? "";
 			const lines = outputLines(result);
 			const kind = classifyCommand(command);
 			const failed = ctx.isError && !isNoMatch(command, lines);

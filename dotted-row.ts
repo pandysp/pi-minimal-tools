@@ -1,4 +1,4 @@
-import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
+import type { ToolRenderers } from "@earendil-works/pi-coding-agent";
 import { type Component, stripTerminalSequences } from "@earendil-works/pi-tui";
 import { dot } from "./dots";
 import { loud } from "./loud";
@@ -8,18 +8,17 @@ import { loud } from "./loud";
  * green when it succeeded, red when it failed. Everything else is stock pi's drawing.
  * pi calls renderCall again on every update, and isPartial stays true until the final result.
  */
-export function withDot<T extends ToolDefinition<any, any, any>>(stock: T): T {
+export function withDot(name: string, stock: ToolRenderers): ToolRenderers {
 	const stockCall = stock.renderCall!;
 	const stockResult = stock.renderResult!;
 	return {
-		...stock,
 		// No frame, like the bash rows: pi's box adds a blank line above and below. (Stock edit has none already.)
 		renderShell: "self",
-		renderCall: loud(stock.name, (args, theme, ctx) =>
+		renderCall: loud(name, (args, theme, ctx) =>
 			// Stock renderers reuse their previous component; never hand them ours (pi swallows the crash).
 			dotInFront(stockCall(args, theme, { ...ctx, lastComponent: undefined }), rowState(ctx)),
 		),
-		renderResult: loud(stock.name, (result, options, theme, ctx) => stockResult(result, options, theme, { ...ctx, lastComponent: undefined })),
+		renderResult: loud(name, (result, options, theme, ctx) => stockResult(result, options, theme, { ...ctx, lastComponent: undefined })),
 	};
 }
 

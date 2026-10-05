@@ -1,14 +1,8 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import {
-	createBashToolDefinition,
-	createEditToolDefinition,
-	createWriteToolDefinition,
-	SettingsManager,
-} from "@earendil-works/pi-coding-agent";
 import { claudeBash } from "./bash-row";
-import { shortCodemode, stockCodemode } from "./codemode-row";
+import { shortCodemode } from "./codemode-row";
 import { withDot } from "./dotted-row";
-import { LOOK_SUMMARY, shortLook } from "./look-row";
+import { shortLook } from "./look-row";
 import { replyDot } from "./reply-dot";
 import { shortWrite } from "./write-row";
 
@@ -16,26 +10,17 @@ export default function (pi: ExtensionAPI) {
 	pi.registerMarkdownTransformer(replyDot);
 	pi.registerToolRenderer((name, next) => {
 		const stock = next();
-		if (!Object.hasOwn(LOOK_SUMMARY, name) || !stock) return stock;
-		return shortLook(name as keyof typeof LOOK_SUMMARY, stock);
-	});
-
-	pi.on("session_start", (_event, ctx) => {
-		// Build the tools exactly as stock pi does (agent-session.js): same directory; bash gets its
-		// settings-derived options, write and edit get none.
-		const settings = SettingsManager.create(ctx.cwd, undefined, { projectTrusted: ctx.isProjectTrusted() });
-		const bash = createBashToolDefinition(ctx.cwd, {
-			shellPath: settings.getShellPath(),
-			commandPrefix: settings.getShellCommandPrefix(),
-		});
-
-		// Registering a tool switches it on. Keep the user's active set exactly as it was.
-		const active = pi.getActiveTools();
-		pi.registerTool(claudeBash(bash));
-		pi.registerTool(shortWrite(createWriteToolDefinition(ctx.cwd)));
-		pi.registerTool(withDot(createEditToolDefinition(ctx.cwd)));
-		// Only when pi has codemode at all: the built-in can be switched off in settings.
-		if (pi.getAllTools().some((tool) => tool.name === "codemode")) pi.registerTool(shortCodemode(stockCodemode(pi)));
-		pi.setActiveTools(active);
+		// Execution-only custom tools keep pi’s generic drawing, including its result fallback.
+		if (!stock?.renderCall || !stock.renderResult) return stock;
+		switch (name) {
+			case "bash": return claudeBash(stock);
+			case "write": return shortWrite(stock);
+			case "edit": return withDot(name, stock);
+			case "codemode": return shortCodemode(stock);
+			case "grep":
+			case "find":
+			case "ls": return shortLook(name, stock);
+			default: return stock;
+		}
 	});
 }

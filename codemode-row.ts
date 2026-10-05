@@ -1,31 +1,17 @@
-import { createCodemodeExtension, type ExtensionAPI, highlightCode, type ToolDefinition } from "@earendil-works/pi-coding-agent";
+import { highlightCode, type ToolRenderers } from "@earendil-works/pi-coding-agent";
 import { type Component, Text } from "@earendil-works/pi-tui";
 import { shortCommand } from "./bash-row";
 import { dotInFront, rowState } from "./dotted-row";
 import { loud } from "./loud";
 
 /**
- * pi's own codemode tool, built by its public factory with the real extension API: same description,
- * hooks, execution and store. Only `registerTool` is caught, so we get the definition instead of pi.
- */
-export function stockCodemode(pi: ExtensionAPI): ToolDefinition<any, any, any> {
-	const registered: ToolDefinition<any, any, any>[] = [];
-	createCodemodeExtension()({ ...pi, registerTool: (tool: ToolDefinition<any, any, any>) => registered.push(tool) } as ExtensionAPI);
-	if (registered.length !== 1 || registered[0].name !== "codemode") {
-		throw new Error(`pi-minimal-tools: pi's codemode factory registered ${registered.map((t) => t.name).join(", ") || "nothing"}, expected one codemode tool`);
-	}
-	return registered[0];
-}
-
-/**
  * Stock codemode with a short call row: the dot, then the script cut like a bash command (2 lines,
  * 160 characters). The result (nested calls and output) and the expanded view (Ctrl+O) stay stock.
  */
-export function shortCodemode<T extends ToolDefinition<any, any, any>>(stock: T): T {
+export function shortCodemode(stock: ToolRenderers): ToolRenderers {
 	const stockCall = stock.renderCall!;
 	const stockResult = stock.renderResult!;
 	return {
-		...stock,
 		// No frame, like the bash and write rows (decision A30).
 		renderShell: "self",
 		renderCall: loud("codemode", (args, theme, ctx) => {

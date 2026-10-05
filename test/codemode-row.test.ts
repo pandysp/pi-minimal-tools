@@ -1,11 +1,10 @@
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { describe, expect, it } from "vitest";
-import { shortCodemode, stockCodemode } from "../codemode-row";
+import { shortCodemode } from "../codemode-row";
+import { stockCodemode } from "./helpers/codemode";
 import { DOT, GREEN, GREY, RED, plain } from "./helpers/claude-code";
 import { renderRow } from "./helpers/row";
 
-// The factory only registers the tool; the API methods it hands the tool are not called while drawing.
-const stock = () => stockCodemode({} as ExtensionAPI);
+const stock = stockCodemode;
 const SCRIPT = [
 	"const r = await Promise.allSettled([",
 	'  tools.bash({ command: "git status" }),',
@@ -23,7 +22,7 @@ const DONE = {
 	},
 };
 const row = (args: Record<string, unknown>, result?: { text: string; isError?: boolean; details?: unknown }, opts: { partial?: boolean; expanded?: boolean; width?: number } = {}) =>
-	renderRow({ definition: shortCodemode(stock()), args, result, ...opts });
+	renderRow({ definition: { name: "codemode", ...shortCodemode(stock()) }, args, result, ...opts });
 const visible = (lines: string[]) => plain(lines).filter((l) => l.trim() !== "");
 
 describe("codemode rows", () => {

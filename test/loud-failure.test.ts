@@ -20,9 +20,9 @@ const broken = <T extends { renderCall?: unknown; renderResult?: unknown }>(defi
 describe("a crash in the drawing code is visible in the row", () => {
 	it.each([
 		["bash", () => claudeBash(broken(createBashToolDefinition("/tmp"))), { command: "npm test" }],
-		["write", () => withDot(broken(createWriteToolDefinition("/tmp"))), { path: "a.md", content: "x" }],
+		["write", () => withDot("write", broken(createWriteToolDefinition("/tmp"))), { path: "a.md", content: "x" }],
 	] as const)("%s", (_name, definition, args) => {
-		const text = plain(renderRow({ definition: definition(), args, result: { text: "done" }, expanded: true })).join("\n");
+		const text = plain(renderRow({ definition: { name: _name, ...definition() }, args, result: { text: "done" }, expanded: true })).join("\n");
 		expect(text).toMatch(/pi-minimal-tools: drawing the (bash|write) row failed: stock render(Call|Result) changed/);
 	});
 });

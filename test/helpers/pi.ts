@@ -10,7 +10,7 @@ export const CAPTURE_EXTENSION = join(REPO, "test/fixtures/capture-payloads.ts")
 
 /**
  * This checkout and, when testing from a git worktree, the main checkout, which the user may have
- * installed. Any other installed copy is caught by runPi's check on which bash pi used.
+ * installed. UI tests prove the selected renderers load; request tests require stock tool identities.
  */
 const CHECKOUTS = [
 	...new Set([REPO, dirname(resolve(REPO, execFileSync("git", ["rev-parse", "--git-common-dir"], { cwd: REPO, encoding: "utf8" }).trim()))]),
@@ -74,21 +74,14 @@ export async function runPi({ cwd, prompt, withExtension, session, flags = [] }:
 		child.stdin?.end();
 	});
 	if (!existsSync(captureFile)) throw new Error("pi sent no request to the model");
-	const captured: { bash: string; codemode: string; codemodeSchemaIsStock: boolean; lookSources: Record<string, string>; payload: unknown }[] = readFileSync(captureFile, "utf8").trim().split("\n").map((line) => JSON.parse(line));
-	// Prove which side was measured: pi's own tools, or this checkout's. Any other copy fails loudly.
-	for (const tool of ["bash", "codemode"] as const) {
-		// "none": codemode switched off in settings, on both sides (a payload check then shows it is absent).
-		const expected = (source: string) =>
-			(tool === "codemode" && source === "none") || (withExtension ? source.startsWith(REPO) : source === `builtin:${tool}`);
-		for (const c of captured) {
-			if (!expected(c[tool])) throw new Error(`expected ${withExtension ? "this checkout's" : "pi's own"} ${tool}, but pi used: ${c[tool]}`);
-		}
-	}
+	const captured: { sources: Record<string, string>; codemodeSchemaIsStock: boolean; payload: unknown }[] = readFileSync(captureFile, "utf8").trim().split("\n").map((line) => JSON.parse(line));
+	// Drawing-only extensions leave every tool stock; disabled codemode stays absent.
 	for (const c of captured) {
-		for (const name of ["grep", "find", "ls"]) {
-			if (c.lookSources[name] !== `builtin:${name}`) throw new Error(`display-only look rows must keep pi's own ${name}, but pi used: ${c.lookSources[name]}`);
+		for (const [name, source] of Object.entries(c.sources)) {
+			if (name === "codemode" && source === "none") continue;
+			if (source !== `builtin:${name}`) throw new Error(`display-only rows must keep pi's own ${name}, but pi used: ${source}`);
 		}
 	}
 	if (captured.some((c) => !c.codemodeSchemaIsStock)) throw new Error("the codemode tool in use does not have pi's own schema object; pi's MCP extension would not recognise it");
-	return { requests: captured.map((c) => c.payload), printed, codemode: captured.map((c) => c.codemode) };
+	return { requests: captured.map((c) => c.payload), printed, codemode: captured.map((c) => c.sources.codemode) };
 }

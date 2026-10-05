@@ -15,11 +15,11 @@ Claude Code-style tool rows for [pi](https://pi.dev): the rows that matter stand
 - **Other shell commands** get a full row with the first 3 output lines. A written file shows its first 3 lines the same way.
 - **Long commands are cut like in Claude Code:** at most 2 lines and 160 characters, then `…`.
 - **codemode scripts are cut the same way.** The list of tool calls the script made and its output are drawn by stock pi, without pi's frame like all rows here.
-- **Failures stand out with a red mark.** Failed bash, write and edit calls get a red dot and show their error in full; a `grep` or `rg` that simply found nothing is not a failure. A failed call inside a codemode script gets a red `✗` line; its error text is on Ctrl+O, as in stock pi.
+- **Failures stand out with a red mark.** Failed bash calls keep their 3-line output preview, with full output on Ctrl+O. Failed write and edit calls keep stock pi’s error drawing. A shell `grep` or `rg` that simply found nothing is not a failure. A failed call inside a codemode script gets a red `✗` line; its error text is on Ctrl+O, as in stock pi.
 - **Claude Code's dots:** green = succeeded, red = failed, grey = running, on bash, write, edit and codemode rows, plus a dot in front of agent replies that start with plain text.
 - **Ctrl+O** shows pi's normal full view.
 
-Only the display changes. The model gets exactly the same tools, instructions and results as without the extension, which the tests check against real pi. The dedicated `grep`, `find` and `ls` tools use pi’s renderer-only hook: their implementations are not replaced or activated.
+Only the display changes. All seven covered tools use pi’s renderer-only hook: their implementations are not replaced or activated. Pi keeps ownership of execution, settings, schemas and codemode’s stored values. The model gets exactly the same tools, instructions and results as without the extension, which the tests check against real pi.
 
 ## Install
 
@@ -35,7 +35,7 @@ Requires **pi 1.0.3 or newer**. Tested with pi 1.0.3, alongside `@gotgenes/pi-an
 - **In practice, summaries show up less than you might expect.** Models often chain commands (`cd … && git status && cat …`), and chains get a full row. See decision A29.
 - **pi hides crashes in tool drawing code** and quietly shows only the tool name. This extension shows a red `pi-minimal-tools: drawing the … row failed: …` line instead. If you see one after a pi update, the extension needs updating.
 - **Commands you type yourself** with `!` or `!!` keep pi's normal display: pi draws them with a separate component, which this extension leaves alone.
-- **If another extension also takes over `bash`, `write`, `edit` or `codemode`**, pi uses the first one registered, without a warning. If pi's own codemode is switched off in settings, it stays off. For `grep`, `find` and `ls`, we wrap the next renderer in load order; Ctrl+O and error drawing delegate to it, including renderers from other extensions.
+- **Other extensions keep ownership of their tools.** We wrap the next renderer in load order rather than rebuilding its tool. Drawing delegated to stock pi, including Ctrl+O, uses that next renderer. Custom tools without both drawing callbacks keep pi’s normal fallback display. Disabled tools and extensions stay disabled.
 
 ## Decisions
 
@@ -57,4 +57,4 @@ PI_TEST_MODEL=openai-codex/gpt-6.1-sol:low npm test
 
 Comparison runs share one session identity, so even provider cache keys are compared unchanged.
 
-The real-pi tests need `tmux` and send a few tiny requests to your configured model. For their own runs they switch off this checkout if it is installed (and, when run from a git worktree, the main checkout). Any other installed copy, e.g. one installed from GitHub, makes them stop with a clear error instead of measuring the wrong thing.
+The real-pi tests need `tmux` and send a few tiny requests to your configured model. For their own runs they switch off this checkout if it is installed (and, when run from a git worktree, the main checkout). Request tests require stock tool identities on both sides; an older installed copy that replaces tools fails loudly. Terminal replays separately prove that our rows load and draw correctly. Keep other installed copies of this package out of test runs, since renderer ownership is not exposed by pi’s extension API.

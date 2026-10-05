@@ -121,7 +121,7 @@ describe("look-around registration is display-only", () => {
 		const setActiveTools = vi.fn();
 		extension({ registerMarkdownTransformer() {}, on() {}, registerTool, setActiveTools, registerToolRenderer: (r: ToolRendererResolver) => { resolve = r; } } as unknown as ExtensionAPI);
 		expect(resolve).toBeDefined();
-		for (const name of ["read", "bash", "codemode", "mcp__grep", "toString"]) {
+		for (const name of ["read", "mcp__grep", "toString"]) {
 			const stock = {};
 			const next = vi.fn(() => stock);
 			expect(resolve!(name, next)).toBe(stock);

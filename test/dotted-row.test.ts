@@ -18,7 +18,7 @@ const tools = {
 
 describe.each(Object.entries(tools))("%s rows: stock pi's drawing with Claude Code's dot in front", (_name, tool) => {
 	const render = (result?: { text: string; isError?: boolean }) =>
-		renderRow({ definition: withDot(tool.definition()), args: tool.args, result });
+		renderRow({ definition: { name: _name, ...withDot(_name, tool.definition()) }, args: tool.args, result });
 	// Compared with stock's drawing without pi's frame, as our rows have none (decision A30).
 	const stock = (result?: { text: string; isError?: boolean }) =>
 		plain(renderRow({ definition: { ...tool.definition(), renderShell: "self" as const }, args: tool.args, result }));
@@ -45,7 +45,7 @@ describe.each(Object.entries(tools))("%s rows: stock pi's drawing with Claude Co
 	});
 
 	it("the dot never cuts off the file name, even in a narrow window", () => {
-		const row = renderRow({ definition: withDot(tool.definition()), args: { ...tool.args, path: "abcdefghijklm.txt" }, result: { text: "ok" }, width: 25 });
+		const row = renderRow({ definition: { name: _name, ...withDot(_name, tool.definition()) }, args: { ...tool.args, path: "abcdefghijklm.txt" }, result: { text: "ok" }, width: 25 });
 		expect(plain(row).join("\n")).toContain("abcdefghijklm.txt");
 	});
 });

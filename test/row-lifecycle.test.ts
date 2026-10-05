@@ -12,7 +12,7 @@ const numbered = (n: number) => Array.from({ length: n }, (_, i) => `line ${i + 
 // pi draws the same row component again and again: running, streaming, finished, Ctrl+O on and off.
 describe("one row through its whole life, as pi drives it", () => {
 	it("bash work command", () => {
-		const row = liveRow(claudeBash(createBashToolDefinition("/tmp")), { command: "npm test" });
+		const row = liveRow({ name: "bash", ...claudeBash(createBashToolDefinition("/tmp")) }, { command: "npm test" });
 		expect(visible(row.render())).toEqual(["⏺ $ npm test", "  Running…"]);
 
 		row.output(numbered(8), { partial: true });
@@ -37,7 +37,7 @@ describe("one row through its whole life, as pi drives it", () => {
 	});
 
 	it("bash look-around command collapses to its summary line and comes back after Ctrl+O", () => {
-		const row = liveRow(claudeBash(createBashToolDefinition("/tmp")), { command: "cat big.txt" });
+		const row = liveRow({ name: "bash", ...claudeBash(createBashToolDefinition("/tmp")) }, { command: "cat big.txt" });
 		row.output(numbered(3), { partial: true });
 		row.output(numbered(40));
 		expect(visible(row.render())).toEqual(["  Read 1 file (ctrl+o to expand)"]);
@@ -48,7 +48,7 @@ describe("one row through its whole life, as pi drives it", () => {
 	});
 
 	it("write: streaming content → done → Ctrl+O → back, with the dot grey → green", () => {
-		const row = liveRow(shortWrite(createWriteToolDefinition("/tmp")), { path: "notes.md" }, { argsComplete: false });
+		const row = liveRow({ name: "write", ...shortWrite(createWriteToolDefinition("/tmp")) }, { path: "notes.md" }, { argsComplete: false });
 		row.streamArgs({ path: "notes.md", content: numbered(2) });
 		expect(visible(row.render())).toEqual([`${DOT} write notes.md`, "line 1", "line 2"]);
 		row.streamArgs({ path: "notes.md", content: numbered(25) });
@@ -70,7 +70,7 @@ describe("one row through its whole life, as pi drives it", () => {
 	});
 
 	it("write: redrawing the same row many times still shows exactly one dot (pi redraws constantly)", () => {
-		const row = liveRow(withDot(createWriteToolDefinition("/tmp")), { path: "notes.md", content: "hello" });
+		const row = liveRow({ name: "write", ...withDot("write", createWriteToolDefinition("/tmp")) }, { path: "notes.md", content: "hello" });
 		row.output("Successfully wrote 5 bytes to notes.md");
 		for (let i = 0; i < 50; i++) row.render();
 		const dots = plain(row.render()).join("\n").split(DOT).length - 1;
@@ -81,7 +81,7 @@ describe("one row through its whole life, as pi drives it", () => {
 	it("bash: finishing collapsed after Ctrl+O while streaming leaves no timer running", () => {
 		vi.useFakeTimers();
 		try {
-			const row = liveRow(claudeBash(createBashToolDefinition("/tmp")), { command: "npm test" });
+			const row = liveRow({ name: "bash", ...claudeBash(createBashToolDefinition("/tmp")) }, { command: "npm test" });
 			row.output("line 1", { partial: true });
 			row.expand(true);
 			row.render();
