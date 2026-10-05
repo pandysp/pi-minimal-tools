@@ -28,7 +28,7 @@ const isNoMatch = (command: string, lines: string[]) =>
 	classifyCommand(command) === "search" && /^(grep|rg)\s/.test(command.trim()) && lines.join("\n") === NO_MATCH;
 
 /** pi marks every non-zero exit as an error; a grep or rg that found nothing is a finished search instead. */
-export function bashFailed(result: BashResult, ctx: RenderContext): boolean {
+export function bashFailed(result: BashResult, ctx: { args?: unknown; isError: boolean }): boolean {
 	return ctx.isError && !isNoMatch((ctx.args as { command?: string } | undefined)?.command ?? "", outputLines(result));
 }
 
