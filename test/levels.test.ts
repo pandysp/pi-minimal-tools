@@ -37,20 +37,24 @@ function chat() {
 }
 
 /** An interactive session as pi drives it: our input listener sees each key first, then pi handles it. */
-function session({ expanded = false, sm = chat().sm } = {}) {
+function session({ expanded = false, sm = chat().sm, rows = [] as { expand: (on: boolean) => void }[] } = {}) {
 	let start: ((event: unknown, ctx: unknown) => void) | undefined;
 	let listener: ((data: string) => unknown) | undefined;
 	let flag = expanded;
 	const ui = {
 		getToolsExpanded: () => flag,
-		setToolsExpanded: vi.fn((value: boolean) => { flag = value; }),
+		// Like pi, a change of the flag redraws every row with it.
+		setToolsExpanded: vi.fn((value: boolean) => { flag = value; for (const r of rows) r.expand(value); }),
 		onTerminalInput: vi.fn((handler: (data: string) => unknown) => { listener = handler; return () => {}; }),
 	};
 	watchLevels({ on: (_event: string, handler: typeof start) => { start = handler; } } as unknown as ExtensionAPI);
 	start!({ type: "session_start" }, { mode: "tui", ui, sessionManager: sm });
 	const afterKey = async (flips: boolean) => {
 		listener!(flips ? "\x0f" : "a");
-		if (flips) flag = !flag;
+		if (flips) {
+			flag = !flag;
+			for (const r of rows) r.expand(flag);
+		}
 		await new Promise((resolve) => process.nextTick(resolve));
 	};
 	return { ui, ctrlO: () => afterKey(true), otherKey: () => afterKey(false), expanded: () => flag };
@@ -97,6 +101,7 @@ function oneGroup() {
 		c.assistant([[id, tool, args]]);
 		c.result(id, tool, result.text, { isError: result.isError });
 	}
+	c.assistant([], { text: "Done." });
 	return { c, calls };
 }
 
@@ -105,6 +110,7 @@ describe("Ctrl+O cycles 1 → 2 → 3 → 1 on pi's own expanded flag", () => {
 		const c = chat();
 		c.assistant([["x1", "custom", {}]]);
 		c.result("x1", "custom", "done");
+		c.assistant([], { text: "Done." });
 		const pi = session({ sm: c.sm });
 		const draw = () => row("x1", "custom", {}, { text: "done" }, pi.expanded()).join("\n");
 		expect(draw()).toBe("⏺ 1 action (ctrl+o to expand)");
@@ -124,6 +130,7 @@ describe("Ctrl+O cycles 1 → 2 → 3 → 1 on pi's own expanded flag", () => {
 		const c = chat();
 		c.assistant([["x1", "custom", {}]]);
 		c.result("x1", "custom", "done");
+		c.assistant([], { text: "Done." });
 		const pi = session({ sm: c.sm });
 		await pi.otherKey();
 		await pi.otherKey();
@@ -135,6 +142,7 @@ describe("Ctrl+O cycles 1 → 2 → 3 → 1 on pi's own expanded flag", () => {
 		const c = chat();
 		c.assistant([["x1", "custom", {}]]);
 		c.result("x1", "custom", "done");
+		c.assistant([], { text: "Done." });
 		const pi = session({ expanded: true, sm: c.sm });
 		await pi.ctrlO();
 		expect(row("x1", "custom", {}, { text: "done" })).toEqual(["⏺ 1 action (ctrl+o to expand)"]);
@@ -147,6 +155,7 @@ describe("Ctrl+O cycles 1 → 2 → 3 → 1 on pi's own expanded flag", () => {
 		const c = chat();
 		c.assistant([["x1", "custom", {}]]);
 		c.result("x1", "custom", "done");
+		c.assistant([], { text: "Done." });
 		const onTerminalInput = vi.fn();
 		let start: ((event: unknown, ctx: unknown) => void) | undefined;
 		fresh.watchLevels({ on: (_event: string, handler: typeof start) => { start = handler; } } as unknown as ExtensionAPI);
@@ -188,6 +197,7 @@ describe("level 1: one summary line per group", () => {
 		c.user("again");
 		c.assistant([["b4", "bash", { command: "whoami" }]]);
 		c.result("b4", "bash", "me");
+		c.assistant([], { text: "Done." });
 		session({ sm: c.sm });
 		expect(row("b1", "bash", { command: "ls" }, { text: "a.txt" })).toEqual(["⏺ Ran 2 commands (ctrl+o to expand)"]);
 		expect(row("b2", "bash", { command: "pwd" }, { text: "/tmp" })).toEqual([]);
@@ -205,6 +215,7 @@ describe("level 1: one summary line per group", () => {
 		c.sm.appendCustomMessageEntry("note", "shown note", true);
 		c.assistant([["b3", "bash", { command: "date" }]]);
 		c.result("b3", "bash", "today");
+		c.assistant([], { text: "Done." });
 		session({ sm: c.sm });
 		expect(row("b1", "bash", { command: "ls" }, { text: "a.txt" })).toEqual(["⏺ Ran 2 commands (ctrl+o to expand)"]);
 		expect(row("b2", "bash", { command: "pwd" }, { text: "/tmp" })).toEqual([]);
@@ -219,6 +230,7 @@ describe("level 1: one summary line per group", () => {
 		c.result("p1", "plain_tool", "plain");
 		c.assistant([["b2", "bash", { command: "pwd" }]]);
 		c.result("b2", "bash", "/tmp");
+		c.assistant([], { text: "Done." });
 		session({ sm: c.sm });
 		expect(row("b1", "bash", { command: "ls" }, { text: "a.txt" })).toEqual(["⏺ Ran 1 command (ctrl+o to expand)"]);
 		expect(row("b2", "bash", { command: "pwd" }, { text: "/tmp" })).toEqual(["⏺ Ran 1 command (ctrl+o to expand)"]);
@@ -235,12 +247,92 @@ describe("level 1: one summary line per group", () => {
 		expect(row("unsaved", "bash", { command: "echo hi" }).join("\n")).toContain("$ echo hi");
 	});
 
+	it("the latest finished call stays its own row until something later is saved, then folds", () => {
+		const c = chat();
+		c.assistant([["b1", "bash", { command: "echo one" }]]);
+		c.result("b1", "bash", "one");
+		session({ sm: c.sm });
+		expect(row("b1", "bash", { command: "echo one" }, { text: "one" }).join("\n")).toContain("$ echo one");
+		c.assistant([["b2", "bash", { command: "pwd" }]]);
+		expect(row("b1", "bash", { command: "echo one" }, { text: "one" })).toEqual(["⏺ Ran 1 command (ctrl+o to expand)"]);
+		expect(row("b2", "bash", { command: "pwd" }).join("\n")).toContain("$ pwd");
+	});
+
+	it("a click on the summary opens the group: the summary stays on top and every row shows; a second click closes it", () => {
+		const { c, calls } = oneGroup();
+		session({ sm: c.sm });
+		const rows = calls.map(([id, tool, args, result]) => {
+			const r = liveRow(wrapped(definitions[tool]), args, { id });
+			r.output(result.text, { isError: result.isError });
+			return r;
+		});
+		const screen = () => plain(rows.flatMap((r) => r.render(160))).filter((l) => l.trim());
+		expect(screen()).toEqual(["⏺ Ran 2 commands (1 failed), created 1 file, read 1 file, edited 1 file, and 1 more action (ctrl+o to expand)"]);
+		// pi's own click handling: a click on a row toggles that row's expanded flag.
+		rows[0].expand(true);
+		const open = screen();
+		expect(open[0]).toBe("⏺ Ran 2 commands (1 failed), created 1 file, read 1 file, edited 1 file, and 1 more action (ctrl+o to expand)");
+		for (const text of ["Listed 1 directory", "$ cat missing.txt", "read a.txt", "write b.txt", "edit b.txt", "custom"]) expect(open.join("\n")).toContain(text);
+		// The summary's own row draws collapsed, like the others.
+		expect(open.join("\n")).not.toContain("Took");
+		rows[0].expand(false);
+		expect(screen()).toEqual(["⏺ Ran 2 commands (1 failed), created 1 file, read 1 file, edited 1 file, and 1 more action (ctrl+o to expand)"]);
+	});
+
+	it("a click on the latest row before it folds does not swallow the first click on its summary", () => {
+		const c = chat();
+		c.assistant([["b1", "bash", { command: "echo one" }]]);
+		c.result("b1", "bash", "one");
+		session({ sm: c.sm });
+		const r = liveRow(wrapped(definitions.bash), { command: "echo one" }, { id: "b1" });
+		r.output("one");
+		r.expand(true); // a click while it is still the latest call
+		c.assistant([["b2", "bash", { command: "pwd" }]]);
+		expect(plain(r.render(160)).filter((l) => l.trim())).toEqual(["⏺ Ran 1 command (ctrl+o to expand)"]);
+		r.expand(false); // the first click on the summary
+		expect(plain(r.render(160)).join("\n")).toContain("$ echo one");
+	});
+
+	it("Ctrl+O back to level 1 closes an opened group", async () => {
+		const { c, calls } = oneGroup();
+		const rows = calls.map(([id, tool, args, result]) => {
+			const r = liveRow(wrapped(definitions[tool]), args, { id });
+			r.output(result.text, { isError: result.isError });
+			return r;
+		});
+		const pi = session({ sm: c.sm, rows });
+		const screen = () => plain(rows.flatMap((r) => r.render(160))).filter((l) => l.trim());
+		rows[0].expand(true);
+		expect(screen().length).toBeGreaterThan(1);
+		await pi.ctrlO();
+		await pi.ctrlO();
+		await pi.ctrlO();
+		expect(pi.expanded()).toBe(false);
+		expect(screen()).toEqual(["⏺ Ran 2 commands (1 failed), created 1 file, read 1 file, edited 1 file, and 1 more action (ctrl+o to expand)"]);
+	});
+
+	it("in an opened group, a click on another row expands that row as pi does", () => {
+		const { c, calls } = oneGroup();
+		session({ sm: c.sm });
+		const rows = calls.map(([id, tool, args, result]) => {
+			const r = liveRow(wrapped(definitions[tool]), args, { id });
+			r.output(result.text, { isError: result.isError });
+			return r;
+		});
+		rows[0].expand(true);
+		const before = plain(rows[2].render(160)).join("\n");
+		rows[2].expand(true);
+		expect(plain(rows[2].render(160)).join("\n")).not.toBe(before);
+		expect(plain(rows[2].render(160)).join("\n")).toContain("alpha");
+	});
+
 	it("failure rules follow the rows: a grep that found nothing succeeded; a codemode script with a failed call inside failed", () => {
 		const c = chat();
 		c.assistant([["g1", "bash", { command: "grep zzz notes.txt" }]]);
 		c.result("g1", "bash", "(no output)\n\nCommand exited with code 1", { isError: true });
 		c.assistant([["m1", "codemode", { code: "return 1;" }]]);
 		c.result("m1", "codemode", "Script completed\nWall time 0.1 seconds\nOutput:\n1", { details: { calls: [{ name: "read", args: "{}", status: "error", durationMs: 1 }] } });
+		c.assistant([], { text: "Done." });
 		session({ sm: c.sm });
 		expect(row("g1", "bash", { command: "grep zzz notes.txt" }, { text: "(no output)\n\nCommand exited with code 1", isError: true })).toEqual([
 			"⏺ Ran 1 command, and 1 more action (1 failed) (ctrl+o to expand)",

@@ -6,7 +6,8 @@ import { codemodeFailed } from "./codemode-row";
  * Level 1 folds the finished tool calls of a group into one summary line. A group is a run of tool calls
  * that nothing visible interrupts: your messages and the agent's text end it; its thinking does not.
  * Groups and outcomes come from the saved session, so a resumed session looks the same as a live one.
- * A call the model is still writing is not saved yet; it draws its normal row until it is.
+ * A call folds once it has finished and something later is saved (the next call, text or a message), so the
+ * latest call stays visible as its row while the model writes the next one.
  */
 
 /** Tools whose rows can fold (we wrap their renderers). Any other tool draws its own row, which ends a group. */
@@ -17,7 +18,11 @@ interface Call {
 	name: string;
 	args: unknown;
 	outcome: Outcome;
+	/** Something was saved after the call's message. */
+	followed: boolean;
 }
+
+export const folds = (call: Call | undefined) => !!call && call.outcome !== "running" && call.followed;
 interface Groups {
 	groupOf: Map<string, string[]>;
 	calls: Map<string, Call>;
@@ -45,13 +50,21 @@ function build(manager: SessionManager): Groups {
 	const groupOf = new Map<string, string[]>();
 	const calls = new Map<string, Call>();
 	let current: string[] = [];
+	let unfollowed: Call[] = [];
+	const follow = () => {
+		for (const call of unfollowed) call.followed = true;
+		unfollowed = [];
+	};
 	const end = () => {
 		for (const id of current) groupOf.set(id, current);
 		current = [];
 	};
 	for (const entry of manager.getBranch()) {
 		// Summaries and shown extension messages are drawn in the chat; hidden ones (display: false) are not.
-		if ((entry.type === "custom_message" && entry.display) || entry.type === "compaction" || entry.type === "branch_summary") end();
+		if ((entry.type === "custom_message" && entry.display) || entry.type === "compaction" || entry.type === "branch_summary") {
+			follow();
+			end();
+		}
 		if (entry.type !== "message") continue;
 		const message = entry.message as { role: string; content?: unknown; toolCallId?: string; isError?: boolean; details?: unknown };
 		if (message.role === "toolResult") {
@@ -59,6 +72,7 @@ function build(manager: SessionManager): Groups {
 			if (call) call.outcome = failed(call, message) ? "failed" : "ok";
 			continue;
 		}
+		follow();
 		if (message.role !== "assistant") {
 			end();
 			continue;
@@ -72,7 +86,9 @@ function build(manager: SessionManager): Groups {
 				continue;
 			}
 			current.push(block.id);
-			calls.set(block.id, { name: block.name ?? "", args: block.arguments, outcome: "running" });
+			const call: Call = { name: block.name ?? "", args: block.arguments, outcome: "running", followed: false };
+			calls.set(block.id, call);
+			unfollowed.push(call);
 		}
 	}
 	end();
@@ -95,11 +111,11 @@ const KINDS = [
 	{ tool: "edit", words: (n: number) => `edited ${n} ${n === 1 ? "file" : "files"}` },
 ];
 
-/** "Ran 3 commands (2 failed), read 1 file, and 2 more actions": the finished calls, in a fixed order. */
+/** "Ran 3 commands (2 failed), read 1 file, and 2 more actions": the folded calls, in a fixed order. */
 export function summarize(calls: Call[]): { text: string; failed: number } {
 	const parts: string[] = [];
 	const count = (matches: (call: Call) => boolean) => {
-		const done = calls.filter((call) => call.outcome !== "running" && matches(call));
+		const done = calls.filter((call) => folds(call) && matches(call));
 		return { n: done.length, failed: done.filter((call) => call.outcome === "failed").length };
 	};
 	const withFailed = (words: string, failed: number) => (failed ? `${words} (${failed} failed)` : words);

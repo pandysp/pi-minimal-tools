@@ -15,4 +15,13 @@ describe("Ctrl+O levels in real pi with the user's full setup", { timeout: 300_0
 		for (const row of ["$ ./first-check.sh", "read notes.md", "second failure", "hidden-success"]) expect(level2).toContain(row);
 		expect(level2).not.toContain("Ran 3 commands");
 	});
+
+	it("a click on the summary line opens the group at level 1: the summary stays on top, the rows show below", async () => {
+		const cwd = tempDir("levels-click");
+		const opened = tools(await replay("session-levels.jsonl", true, cwd, { click: "Ran 3 commands" })).join("\n");
+		expect(opened).toContain("⏺ Ran 3 commands (2 failed), read 1 file (ctrl+o to expand)");
+		for (const row of ["$ ./first-check.sh", "read notes.md", "second failure", "hidden-success"]) expect(opened).toContain(row);
+		// Collapsed rows, as at level 2: the first failure shows 3 of its 10 lines.
+		expect(opened).not.toContain("first failure line 10");
+	});
 });

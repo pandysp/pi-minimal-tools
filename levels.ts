@@ -1,7 +1,7 @@
 import type { ExtensionAPI, Theme, ToolRenderers } from "@earendil-works/pi-coding-agent";
 import { Box, type Component, truncateToWidth } from "@earendil-works/pi-tui";
 import { dot } from "./dots";
-import { groupOf, summarize, useSession } from "./groups";
+import { folds, groupOf, summarize, useSession } from "./groups";
 
 /**
  * Three levels on pi's own expand key (Ctrl+O): 1 folds finished calls into one summary line per group, 2 is pi's collapsed
@@ -18,6 +18,7 @@ export function watchLevels(pi: ExtensionAPI) {
 		// pi keeps its flag across /new, /resume and /reload; a new session starts hidden unless expanded.
 		level = ctx.ui.getToolsExpanded() ? 3 : 1;
 		useSession(ctx.sessionManager);
+		opened.clear();
 		ctx.ui.onTerminalInput(() => {
 			const before = ctx.ui.getToolsExpanded();
 			// Runs after the focused component has handled the key and before pi draws the next frame
@@ -37,29 +38,38 @@ export function watchLevels(pi: ExtensionAPI) {
 
 const STATE = Symbol("levels");
 interface RowState {
+	/** The row draws its group's summary at level 1; set by renderCall, which pi calls before renderResult. */
+	head?: boolean;
+	/** pi's expanded flag at the last renderCall: a click on the summary is a change of it. */
+	expanded?: boolean;
 	call?: Component;
 	result?: Component;
 	frame?: Box;
 }
 const rowState = (state: Record<PropertyKey, unknown>) => (state[STATE] ??= {}) as RowState;
 
-/**
- * At level 1 a saved, finished call is folded into its group: the group's first finished call draws the
- * summary line, the others draw nothing. Running calls and calls not saved yet draw their normal row.
- * Undefined means: draw normally.
- */
-function folded(toolCallId: string, theme: Theme): string[] | undefined {
-	if (level !== 1) return undefined;
-	const group = groupOf(toolCallId);
-	if (!group || group.calls.get(toolCallId)?.outcome === "running") return undefined;
-	const head = group.ids.find((id) => group.calls.get(id)?.outcome !== "running");
-	if (head !== toolCallId) return [];
-	const { text, failed } = summarize(group.ids.map((id) => group.calls.get(id)!));
-	return [`${dot(failed ? "failed" : "succeeded")} ${text}${theme.fg("dim", " (ctrl+o to expand)")}`];
-}
+/** Groups opened by a click on their summary line: the click expands the first row, which draws the summary. */
+const opened = new Set<string>();
 
 /**
- * A tool row that folds into its group's summary at level 1 (see folded). Rows always draw in pi's "self"
+ * What a row draws at level 1. A folded call draws nothing, except the group's first folded call, which draws
+ * the summary line (and its own row below it when the group is opened). Other calls draw their normal row.
+ */
+type Fold = "row" | "nothing" | { summary: string; open: boolean };
+function fold(toolCallId: string, theme: Theme): Fold {
+	if (level !== 1) return "row";
+	const group = groupOf(toolCallId);
+	if (!group || !folds(group.calls.get(toolCallId))) return "row";
+	const head = group.ids.find((id) => folds(group.calls.get(id)))!;
+	const open = opened.has(head);
+	if (head !== toolCallId) return open ? "row" : "nothing";
+	const { text, failed } = summarize(group.ids.map((id) => group.calls.get(id)!));
+	return { summary: `${dot(failed ? "failed" : "succeeded")} ${text}${theme.fg("dim", " (ctrl+o to expand)")}`, open };
+}
+const isHead = (fold: Fold) => typeof fold === "object";
+
+/**
+ * A tool row that folds into its group's summary at level 1 (see fold). Rows always draw in pi's "self"
  * shell, because only that one draws nothing for an empty row; pi's default shell would leave a blank line.
  * Tools that use the default shell get an identical frame drawn by us.
  */
@@ -71,29 +81,50 @@ export function hideable(renderers: ToolRenderers): ToolRenderers {
 		renderShell: "self",
 		renderCall(args, theme, ctx) {
 			const row = rowState(ctx.state);
+			// At level 1 pi expands a row only on a click. On the summary's row that opens the group, and the
+			// row itself still draws collapsed.
+			row.head = level === 1 && isHead(fold(ctx.toolCallId, theme));
+			// A click flips the flag. Toggle on the change, not the value: the row may have been clicked while it
+			// was still the latest call, before it folded. Ctrl+O redraws every row at level 2 or 3, which closes it.
+			const clicked = row.expanded !== undefined && row.expanded !== ctx.expanded;
+			row.expanded = ctx.expanded;
+			if (level !== 1) opened.delete(ctx.toolCallId);
+			else if (row.head && clicked) {
+				if (!opened.delete(ctx.toolCallId)) opened.add(ctx.toolCallId);
+			}
+			const expanded = row.head ? false : ctx.expanded;
 			// Each renderer gets back its own previous component, as pi would hand it. If it throws, pi draws
 			// its generic call line instead, and the result has to be drawn on its own (see renderResult).
 			const previous = row.call;
 			row.call = undefined;
-			row.call = call(args, theme, { ...ctx, lastComponent: previous });
+			row.call = call(args, theme, { ...ctx, expanded, lastComponent: previous });
 			return {
 				render: (width) => {
-					const summary = folded(ctx.toolCallId, theme);
-					if (summary) return summary.map((line) => truncateToWidth(line, width));
-					return ownShell ? row.call!.render(width) : framed(row, theme, ctx).render(width);
+					const f = fold(ctx.toolCallId, theme);
+					if (f === "nothing") return [];
+					const own = () => (ownShell ? row.call!.render(width) : framed(row, theme, ctx).render(width));
+					if (f === "row") return own();
+					return [truncateToWidth(f.summary, width), ...(f.open ? ["", ...own()] : [])];
 				},
 				invalidate: () => row.call?.invalidate(),
 			};
 		},
 		renderResult(res, options, theme, ctx) {
 			const row = rowState(ctx.state);
+			const expanded = row.head ? false : options.expanded;
 			// Never draw an older result: if this renderer throws, pi draws its generic result instead.
 			const previous = row.result;
 			row.result = undefined;
-			row.result = result(res, options, theme, { ...ctx, lastComponent: previous });
+			row.result = result(res, { ...options, expanded }, theme, { ...ctx, expanded, lastComponent: previous });
 			// In our frame the result is drawn together with the call, unless the call renderer threw.
 			if (!ownShell && row.call) return { render: () => [], invalidate() {} };
-			return { render: (width) => (folded(ctx.toolCallId, theme) ? [] : row.result!.render(width)), invalidate: () => row.result?.invalidate() };
+			return {
+				render: (width) => {
+					const f = fold(ctx.toolCallId, theme);
+					return f === "row" || (typeof f === "object" && f.open) ? row.result!.render(width) : [];
+				},
+				invalidate: () => row.result?.invalidate(),
+			};
 		},
 	};
 }

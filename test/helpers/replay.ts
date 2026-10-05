@@ -10,9 +10,9 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * return the whole screen, colours included, once it has stopped changing and Ctrl+O was pressed `presses`
  * times. Stock pi starts collapsed and Ctrl+O expands; ours starts at level 1 (finished successes hidden),
  * then 2 (collapsed) and 3 (expanded). The window is tall enough for the whole session: in fullscreen
- * mode pi keeps no scrollback.
+ * mode pi keeps no scrollback. With `click`, the mouse then clicks the first screen line that contains that text.
  */
-export async function replay(fixture: string, withExtension: boolean, cwd = tempDir("replay"), { presses = 0, height = 300 } = {}): Promise<string[]> {
+export async function replay(fixture: string, withExtension: boolean, cwd = tempDir("replay"), { presses = 0, height = 300, click = "" } = {}): Promise<string[]> {
 	const session = copySession(fixture, cwd);
 	const name = `pct-replay-${process.pid}-${Date.now()}`;
 	const command = `pi ${withExtension ? `-e ${EXTENSION} ` : ""}--session ${session}`;
@@ -29,6 +29,14 @@ export async function replay(fixture: string, withExtension: boolean, cwd = temp
 		}
 		for (let i = 0; i < presses; i++) {
 			tmux("send-keys", "-t", name, "C-o");
+			await sleep(1000);
+			last = tmux("capture-pane", "-e", "-p", "-S", "-3000", "-t", name);
+		}
+		if (click) {
+			const row = tmux("capture-pane", "-p", "-t", name).split("\n").findIndex((l) => l.includes(click)) + 1;
+			if (row === 0) throw new Error(`nothing to click: "${click}" is not on screen`);
+			// An SGR mouse press and release at column 10 of that line, as a terminal sends them.
+			tmux("send-keys", "-t", name, "-l", `\x1b[<0;10;${row}M\x1b[<0;10;${row}m`);
 			await sleep(1000);
 			last = tmux("capture-pane", "-e", "-p", "-S", "-3000", "-t", name);
 		}
