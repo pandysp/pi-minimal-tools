@@ -1,4 +1,4 @@
-import { createBashToolDefinition, createEditToolDefinition, createReadToolDefinition, createWriteToolDefinition, type ExtensionAPI, SessionManager, type ToolRenderers } from "@earendil-works/pi-coding-agent";
+import { AssistantMessageComponent, createBashToolDefinition, createEditToolDefinition, createReadToolDefinition, createWriteToolDefinition, type ExtensionAPI, SessionManager, type ToolRenderers } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { describe, expect, it, vi } from "vitest";
 import { claudeBash } from "../bash-row";
@@ -6,6 +6,7 @@ import { shortCodemode } from "../codemode-row";
 import { withDot } from "../dotted-row";
 import { foldable } from "../groups";
 import { hideable, watchLevels } from "../levels";
+import { hideThinking } from "../thinking";
 import { shortWrite } from "../write-row";
 import { stockCodemode } from "./helpers/codemode";
 import { GREY, plain } from "./helpers/claude-code";
@@ -437,5 +438,60 @@ describe("the call the model is writing", () => {
 		handler("message_end")({ message: {} });
 		c.assistant([["w2", "bash", { command: "pwd" }]]);
 		expect(older()).toEqual(["▸ Ran 1 command (ctrl+o to expand)"]);
+	});
+});
+
+describe("level 1 hides Thinking... once the message goes on", () => {
+	hideThinking({ on: vi.fn() } as unknown as ExtensionAPI);
+	const thinking = { type: "thinking", thinking: "Let me look around." };
+	const text = { type: "text", text: "Here is the answer." };
+	const call = { type: "toolCall", id: "t1", name: "bash", arguments: { command: "ls" } };
+	const message = (...content: object[]) => ({ role: "assistant", content, stopReason: "stop", timestamp: 0 }) as never;
+	/** pi's real message row, with thinking shown as its label as in the user's settings. */
+	const draw = (row: AssistantMessageComponent) => plain(row.render(80));
+	const rowOf = (...content: object[]) => new AssistantMessageComponent(message(...content), true);
+
+	it("hides the label and its spacing when text or a tool call follows; keeps the thinking still in progress", () => {
+		session();
+		expect(draw(rowOf(thinking, text))).toEqual(["", " Here is the answer."]);
+		expect(draw(rowOf(thinking, call))).toEqual([]);
+		expect(draw(rowOf(thinking))).toEqual(["", " Thinking..."]);
+	});
+
+	it("the streaming label disappears in the frame the tool call arrives", () => {
+		session();
+		const row = rowOf(thinking);
+		expect(draw(row)).toEqual(["", " Thinking..."]);
+		row.updateContent(message(thinking, call), true);
+		expect(draw(row)).toEqual([]);
+	});
+
+	it("levels 2 and 3 draw pi's row unchanged; back at level 1 it hides again; the row keeps the full message", async () => {
+		const pi = session();
+		const row = rowOf(thinking, text);
+		expect(draw(row)).toEqual(["", " Here is the answer."]);
+		expect(row.lastMessage?.content).toHaveLength(2);
+		await pi.ctrlO();
+		expect(draw(row)).toEqual(["", " Thinking...", "", " Here is the answer."]);
+		await pi.ctrlO();
+		expect(draw(row)).toEqual(["", " Thinking...", "", " Here is the answer."]);
+		await pi.ctrlO();
+		expect(draw(row)).toEqual(["", " Here is the answer."]);
+	});
+
+	it("thinking shown in full (Ctrl+T) stays at level 1", () => {
+		session();
+		const row = rowOf(thinking, text);
+		row.setHideThinkingBlock(false);
+		expect(draw(row)).toEqual(["", " Let me look around.", "", " Here is the answer."]);
+	});
+
+	it("loading the extension again (/reload) does not wrap pi's row twice", () => {
+		const proto = AssistantMessageComponent.prototype;
+		const before = [proto.updateContent, proto.render];
+		hideThinking({ on: vi.fn() } as unknown as ExtensionAPI);
+		expect([proto.updateContent, proto.render]).toEqual(before);
+		session();
+		expect(draw(rowOf(thinking, call))).toEqual([]);
 	});
 });

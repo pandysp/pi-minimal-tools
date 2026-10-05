@@ -5,10 +5,12 @@ import { withDot } from "./dotted-row";
 import { foldable } from "./groups";
 import { hideable, watchLevels } from "./levels";
 import { shortLook } from "./look-row";
+import { hideThinking } from "./thinking";
 import { shortWrite } from "./write-row";
 
 export default function (pi: ExtensionAPI) {
 	watchLevels(pi);
+	hideThinking(pi);
 	pi.registerToolRenderer((name, next) => {
 		const stock = next();
 		// Execution-only custom tools keep pi’s generic drawing, including its result fallback. They cannot fold.

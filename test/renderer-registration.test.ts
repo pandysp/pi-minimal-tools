@@ -23,10 +23,10 @@ function registration() {
 const names = ["bash", "write", "edit", "codemode", "grep", "find", "ls"];
 
 describe("the entire extension is display-only", () => {
-	it("registers one renderer resolver, one markdown transformer and the Ctrl+O level watcher, without tool ownership", () => {
+	it("registers one renderer resolver, the Ctrl+O level watcher and the thinking check, without tool ownership", () => {
 		const { api } = registration();
 		expect(api.registerToolRenderer).toHaveBeenCalledTimes(1);
-		expect(api.on.mock.calls.map(([event]) => event).sort()).toEqual(["message_end", "message_update", "session_start"]);
+		expect(api.on.mock.calls.map(([event]) => event).sort()).toEqual(["message_end", "message_update", "session_start", "session_start"]);
 		for (const call of [api.registerTool, api.setActiveTools, api.getActiveTools, api.getAllTools, api.getSettings]) expect(call).not.toHaveBeenCalled();
 	});
 

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Level 1 hides the agent's `Thinking...` once the same message goes on with text or a tool call, without leaving a blank line. The thinking still in progress stays visible, like the latest call. Levels 2 and 3 are unchanged. If a pi update removes what this relies on, the session starts with an error.
+
 ## 0.1.4
 
 - Searches, listings and reads (the `grep`, `find` and `ls` tools, and a single `ls`, `cat`, `grep` and the like in bash) show their grey summary line from the start, like Claude Code: `Searching for 1 pattern…` while running, `Searched for 1 pattern` once done. Before, pi's own line switched to the summary the moment the call finished. A failure still turns into the full red row.

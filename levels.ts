@@ -11,6 +11,7 @@ import { folds, groupOf, summarize, useSession, writing } from "./groups";
  * Until an interactive session starts (print mode, tests), nothing is hidden.
  */
 let level: 1 | 2 | 3 = 2;
+export const atLevel1 = () => level === 1;
 
 export function watchLevels(pi: ExtensionAPI) {
 	// pi tells extensions before it draws, so the older call folds in the frame in which the next one appears.
