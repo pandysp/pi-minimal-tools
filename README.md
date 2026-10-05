@@ -17,9 +17,9 @@ Claude Code-style tool rows for [pi](https://pi.dev): the rows that matter stand
 - **codemode scripts are cut the same way.** The list of tool calls the script made and its output are drawn by stock pi, without pi's frame like all rows here.
 - **Failures stand out with a red mark.** Failed bash calls keep their 3-line output preview, with full output on Ctrl+O. Failed write and edit calls keep stock pi’s error drawing. A shell `grep` or `rg` that simply found nothing is not a failure. A failed call inside a codemode script gets a red `✗` line; its error text is on Ctrl+O, as in stock pi.
 - **Claude Code's dots:** green = succeeded, red = failed, grey = running, on bash, write, edit and codemode rows, plus a dot in front of agent replies that start with plain text.
-- **Ctrl+O** shows pi's normal full view.
+- **Ctrl+O has three levels.** A session starts at level 1, which hides every finished, successful tool row. Running and failed rows stay, including a codemode script with a failed or cancelled call inside it. Ctrl+O moves to level 2, the rows described above, then to level 3, pi's normal full view, then back to level 1.
 
-Only the display changes. All seven covered tools use pi’s renderer-only hook: their implementations are not replaced or activated. Pi keeps ownership of execution, settings, schemas and codemode’s stored values. The model gets exactly the same tools, instructions and results as without the extension, which the tests check against real pi.
+Only the display changes. Pi keeps ownership of execution, settings, schemas and codemode’s stored values. The covered tools use pi’s renderer-only hook: their implementations are not replaced or activated. The model gets exactly the same tools, instructions and results as without the extension, which the tests check against real pi.
 
 ## Install
 
@@ -35,7 +35,10 @@ Requires **pi 1.0.3 or newer**. Tested with pi 1.0.3, alongside `@gotgenes/pi-an
 - **In practice, summaries show up less than you might expect.** Models often chain commands (`cd … && git status && cat …`), and chains get a full row. See decision A29.
 - **pi hides crashes in tool drawing code** and quietly shows only the tool name. This extension shows a red `pi-minimal-tools: drawing the … row failed: …` line instead. If you see one after a pi update, the extension needs updating.
 - **Commands you type yourself** with `!` or `!!` keep pi's normal display: pi draws them with a separate component, which this extension leaves alone.
-- **Other extensions keep ownership of their tools.** We wrap the next renderer in load order rather than rebuilding its tool. Drawing delegated to stock pi, including Ctrl+O, uses that next renderer. Custom tools without both drawing callbacks keep pi’s normal fallback display. Disabled tools and extensions stay disabled.
+- **Other extensions keep ownership of their tools.** We wrap the next renderer in load order rather than rebuilding its tool. Drawing delegated to stock pi, including Ctrl+O, uses that next renderer. Disabled tools and extensions stay disabled.
+- **Some rows stay visible at level 1.** Tools that come without their own drawing code (pi draws them in its generic grey box) cannot be hidden, because pi does not let extensions reuse that drawing. Pictures from an image read stay as well; pi draws them outside the row.
+- **Switching sessions** (`/resume`, `/reload`) starts at level 1 again, or at level 3 if pi was expanded.
+- **A one-frame flash is possible after a pi update.** pi only knows collapsed and expanded, so going from level 1 to 2 the extension collapses pi again right before the screen is drawn. If a pi update changes that timing, failed rows may flash expanded for one frame, and `test/levels-replay.e2e.test.ts` fails. How it works: decision A44.
 
 ## Decisions
 

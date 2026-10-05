@@ -27,6 +27,11 @@ const NO_MATCH = "(no output)\nCommand exited with code 1";
 const isNoMatch = (command: string, lines: string[]) =>
 	classifyCommand(command) === "search" && /^(grep|rg)\s/.test(command.trim()) && lines.join("\n") === NO_MATCH;
 
+/** pi marks every non-zero exit as an error; a grep or rg that found nothing is a finished search instead. */
+export function bashFailed(result: BashResult, ctx: RenderContext): boolean {
+	return ctx.isError && !isNoMatch((ctx.args as { command?: string } | undefined)?.command ?? "", outputLines(result));
+}
+
 /** Renders at draw time, so the call row sees the result even though pi builds it first. */
 const lazy = (lines: (width: number) => string[]): Component => ({ render: lines, invalidate() {} });
 const nothing = lazy(() => []);
@@ -68,7 +73,7 @@ export function claudeBash(stock: ToolRenderers): ToolRenderers {
 			const command = (ctx.args as { command?: string } | undefined)?.command ?? "";
 			const lines = outputLines(result);
 			const kind = classifyCommand(command);
-			const failed = ctx.isError && !isNoMatch(command, lines);
+			const failed = bashFailed(result, ctx);
 			// Until the first real output line arrives, the row stays at "Running…".
 			if (options.isPartial && lines.length === 0) return nothing;
 			const outcome: Outcome = options.isPartial ? "streaming" : failed ? "failed" : kind !== "work" ? kind : "succeeded";

@@ -24,11 +24,13 @@ function registration() {
 const names = ["bash", "write", "edit", "codemode", "grep", "find", "ls"];
 
 describe("the entire extension is display-only", () => {
-	it("registers one renderer resolver and markdown transformer, without tool or lifecycle ownership", () => {
+	it("registers one renderer resolver, one markdown transformer and the Ctrl+O level watcher, without tool ownership", () => {
 		const { api } = registration();
 		expect(api.registerToolRenderer).toHaveBeenCalledTimes(1);
 		expect(api.registerMarkdownTransformer).toHaveBeenCalledTimes(1);
-		for (const call of [api.registerTool, api.setActiveTools, api.getActiveTools, api.getAllTools, api.getSettings, api.on]) expect(call).not.toHaveBeenCalled();
+		expect(api.on).toHaveBeenCalledTimes(1);
+		expect(api.on).toHaveBeenCalledWith("session_start", expect.any(Function));
+		for (const call of [api.registerTool, api.setActiveTools, api.getActiveTools, api.getAllTools, api.getSettings]) expect(call).not.toHaveBeenCalled();
 	});
 
 	it.each(names)("%s: wraps the next renderer only, with no execute/schema/activation fields", (name) => {
@@ -75,8 +77,11 @@ describe("the entire extension is display-only", () => {
 		expect(text).not.toContain("drawing the");
 	});
 
-	it.each(["read", "powershell", "mcp__bash", "toString"])("%s is outside our scope", (name) => {
-		const stock = { renderCall: () => new Text("original", 0, 0), renderResult: () => new Text("result", 0, 0) };
-		expect(registration().resolve(name, () => stock)).toBe(stock);
+	it.each(["read", "powershell", "mcp__bash", "toString"])("%s keeps its own drawing, only made hideable", (name) => {
+		const stock = { renderCall: () => new Text("original", 0, 0), renderResult: () => new Text("result", 0, 0), execute: vi.fn() };
+		const renderers = registration().resolve(name, () => stock)!;
+		expect(Object.keys(renderers).sort()).toEqual(["renderCall", "renderResult", "renderShell"]);
+		const draw = (definition: ToolRenderers) => renderRow({ definition: { name, ...definition }, args: {}, result: { text: "done" } });
+		expect(draw(renderers)).toEqual(draw(stock));
 	});
 });

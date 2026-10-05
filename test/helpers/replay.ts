@@ -7,10 +7,13 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
  * Resume a recorded session in real, interactive pi (the user's full setup loads as usual) and
- * return the whole screen, colours included, once it has stopped changing. The window is tall enough
- * for the whole session: in fullscreen mode pi keeps no scrollback.
+ * return the whole screen, colours included, once it has stopped changing and Ctrl+O was pressed `presses`
+ * times. Stock pi starts collapsed and Ctrl+O expands; ours starts at level 1 (finished successes hidden),
+ * then 2 (collapsed) and 3 (expanded). The window is tall enough for the whole session: in fullscreen
+ * mode pi keeps no scrollback. With `recording`, everything pi writes to the terminal during the presses is
+ * appended to that file, so a frame that was drawn and immediately replaced can still be found.
  */
-export async function replay(fixture: string, withExtension: boolean, cwd = tempDir("replay"), { expanded = false, height = 300 } = {}): Promise<string[]> {
+export async function replay(fixture: string, withExtension: boolean, cwd = tempDir("replay"), { presses = 0, height = 300, recording = "" } = {}): Promise<string[]> {
 	const session = copySession(fixture, cwd);
 	const name = `pct-replay-${process.pid}-${Date.now()}`;
 	const command = `pi ${withExtension ? `-e ${EXTENSION} ` : ""}--session ${session}`;
@@ -25,11 +28,16 @@ export async function replay(fixture: string, withExtension: boolean, cwd = temp
 			stable = screen === last && screen.includes("hydra") ? stable + 1 : 0;
 			last = screen;
 		}
-		if (expanded) {
+		if (recording) {
+			tmux("pipe-pane", "-t", name, `cat >> '${recording}'`);
+			await sleep(300);
+		}
+		for (let i = 0; i < presses; i++) {
 			tmux("send-keys", "-t", name, "C-o");
 			await sleep(1000);
 			last = tmux("capture-pane", "-e", "-p", "-S", "-3000", "-t", name);
 		}
+		if (recording) tmux("pipe-pane", "-t", name);
 		return last.split("\n");
 	} finally {
 		tmux("kill-session", "-t", name);

@@ -4,6 +4,10 @@ import { shortCommand } from "./bash-row";
 import { dotInFront, rowState } from "./dotted-row";
 import { loud } from "./loud";
 
+/** A script can finish while a tool call inside it failed or was cancelled (it may catch the error); that counts too. */
+export const codemodeFailed = (result: { details?: unknown }, ctx: { isError: boolean }) =>
+	ctx.isError || ((result.details as { calls?: { status?: string }[] } | undefined)?.calls ?? []).some((call) => call.status !== "ok");
+
 /**
  * Stock codemode with a short call row: the dot, then the script cut like a bash command (2 lines,
  * 160 characters). The result (nested calls and output) and the expanded view (Ctrl+O) stay stock.
