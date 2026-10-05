@@ -25,11 +25,14 @@ interface Call {
 /** Text pi draws: the agent's words, not its thinking. */
 const visibleText = (blocks: { type: string; text?: string }[]) => blocks.some((block) => block.type === "text" && !!block.text?.trim());
 
+/** An assistant message goes on after its thinking: pi draws its text or a tool call. */
+export const goesOn = (blocks: { type: string; text?: string }[]) => visibleText(blocks) || blocks.some((block) => block.type === "toolCall");
+
 /** The model is writing a tool call or text that is not saved yet. pi draws it before it saves it. */
 let writingVisible = false;
 export function writing(message: { role?: string; content?: unknown } | undefined) {
 	const blocks = (message?.role === "assistant" && Array.isArray(message.content) ? message.content : []) as { type: string; text?: string }[];
-	writingVisible = visibleText(blocks) || blocks.some((block) => block.type === "toolCall");
+	writingVisible = goesOn(blocks);
 }
 
 /** A finished call folds once something later shows: saved, or still being written by the model. */
