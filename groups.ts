@@ -6,8 +6,8 @@ import { codemodeFailed } from "./codemode-row";
  * Level 1 folds the finished tool calls of a group into one summary line. A group is a run of tool calls
  * that nothing visible interrupts: your messages and the agent's text end it; its thinking does not.
  * Groups and outcomes come from the saved session, so a resumed session looks the same as a live one.
- * A call folds once it has finished and something later is saved (the next call, text or a message), so the
- * latest call stays visible as its row while the model writes the next one.
+ * A call folds once it has finished and something later shows (the next call, text or a message), so the
+ * latest call stays visible as its row while the model thinks about the next one.
  */
 
 /** Tools whose rows can fold (we wrap their renderers). Any other tool draws its own row, which ends a group. */
@@ -22,7 +22,18 @@ interface Call {
 	followed: boolean;
 }
 
-export const folds = (call: Call | undefined) => !!call && call.outcome !== "running" && call.followed;
+/** Text pi draws: the agent's words, not its thinking. */
+const visibleText = (blocks: { type: string; text?: string }[]) => blocks.some((block) => block.type === "text" && !!block.text?.trim());
+
+/** The model is writing a tool call or text that is not saved yet. pi draws it before it saves it. */
+let writingVisible = false;
+export function writing(message: { role?: string; content?: unknown } | undefined) {
+	const blocks = (message?.role === "assistant" && Array.isArray(message.content) ? message.content : []) as { type: string; text?: string }[];
+	writingVisible = visibleText(blocks) || blocks.some((block) => block.type === "toolCall");
+}
+
+/** A finished call folds once something later shows: saved, or still being written by the model. */
+export const folds = (call: Call | undefined) => !!call && call.outcome !== "running" && (call.followed || writingVisible);
 interface Groups {
 	groupOf: Map<string, string[]>;
 	calls: Map<string, Call>;
@@ -78,7 +89,7 @@ function build(manager: SessionManager): Groups {
 			continue;
 		}
 		const blocks = (Array.isArray(message.content) ? message.content : []) as { type: string; text?: string; id?: string; name?: string; arguments?: unknown }[];
-		if (blocks.some((block) => block.type === "text" && block.text?.trim())) end();
+		if (visibleText(blocks)) end();
 		for (const block of blocks) {
 			if (block.type !== "toolCall" || !block.id) continue;
 			if (!foldable.has(block.name ?? "")) {
@@ -112,7 +123,7 @@ const KINDS = [
 ];
 
 /** "Ran 3 commands (2 failed), read 1 file, and 2 more actions": the folded calls, in a fixed order. */
-export function summarize(calls: Call[]): { text: string; failed: number } {
+export function summarize(calls: Call[]): string {
 	const parts: string[] = [];
 	const count = (matches: (call: Call) => boolean) => {
 		const done = calls.filter((call) => folds(call) && matches(call));
@@ -129,5 +140,5 @@ export function summarize(calls: Call[]): { text: string; failed: number } {
 		parts.push(withFailed(words, other.failed));
 	}
 	const text = parts.join(", ");
-	return { text: text.charAt(0).toUpperCase() + text.slice(1), failed: count(() => true).failed };
+	return text.charAt(0).toUpperCase() + text.slice(1);
 }

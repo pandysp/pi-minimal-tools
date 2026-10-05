@@ -5,11 +5,9 @@ import { withDot } from "./dotted-row";
 import { foldable } from "./groups";
 import { hideable, watchLevels } from "./levels";
 import { shortLook } from "./look-row";
-import { replyDot } from "./reply-dot";
 import { shortWrite } from "./write-row";
 
 export default function (pi: ExtensionAPI) {
-	pi.registerMarkdownTransformer(replyDot);
 	watchLevels(pi);
 	pi.registerToolRenderer((name, next) => {
 		const stock = next();

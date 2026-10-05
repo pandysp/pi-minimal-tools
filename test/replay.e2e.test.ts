@@ -16,7 +16,7 @@ describe("replayed sessions in real pi with the user's full setup", { timeout: 3
 		expect(ours.length).toBeLessThanOrEqual(11);
 	});
 
-	it("header, prompt, reply and footer are unchanged, apart from our extension's name and the reply dot", async () => {
+	it("header, prompt, reply and footer are unchanged, apart from our extension's name", async () => {
 		// Same folder for both: it is shown in the footer.
 		const cwd = tempDir("r72");
 		// No Ctrl+O on either side: the text around the tool rows does not depend on the level.
@@ -26,7 +26,7 @@ describe("replayed sessions in real pi with the user's full setup", { timeout: 3
 		// pi lists a loaded extension by its folder name.
 		const name = basename(REPO).replace(/[.]/g, "\\.");
 		const ourName = new RegExp(`, ${name}(?=,|$)|${name}, `);
-		const expectedDifferences = (l: string) => l.replace(ourName, "").replace(/^(\s*)⏺ /, "$1");
+		const expectedDifferences = (l: string) => l.replace(ourName, "");
 		// Fullscreen pi fills the window with blank lines, whose number depends on how tall the tool rows are.
 		const content = (lines: string[]) => lines.filter((l) => l.trim() !== "");
 		expect(content(ours.before).map(expectedDifferences)).toEqual(content(stock.before));

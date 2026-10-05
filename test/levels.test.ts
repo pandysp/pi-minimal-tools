@@ -8,7 +8,7 @@ import { foldable } from "../groups";
 import { hideable, watchLevels } from "../levels";
 import { shortWrite } from "../write-row";
 import { stockCodemode } from "./helpers/codemode";
-import { plain, RED } from "./helpers/claude-code";
+import { GREY, plain } from "./helpers/claude-code";
 import { liveRow } from "./helpers/row";
 
 /** pi's real in-memory session, filled the way pi saves a conversation. */
@@ -113,7 +113,7 @@ describe("Ctrl+O cycles 1 → 2 → 3 → 1 on pi's own expanded flag", () => {
 		c.assistant([], { text: "Done." });
 		const pi = session({ sm: c.sm });
 		const draw = () => row("x1", "custom", {}, { text: "done" }, pi.expanded()).join("\n");
-		expect(draw()).toBe("⏺ 1 action (ctrl+o to expand)");
+		expect(draw()).toBe("▸ 1 action (ctrl+o to expand)");
 		await pi.ctrlO();
 		expect(pi.ui.setToolsExpanded).toHaveBeenCalledWith(false);
 		expect(pi.expanded()).toBe(false);
@@ -122,7 +122,7 @@ describe("Ctrl+O cycles 1 → 2 → 3 → 1 on pi's own expanded flag", () => {
 		expect(pi.expanded()).toBe(true);
 		await pi.ctrlO();
 		expect(pi.expanded()).toBe(false);
-		expect(draw()).toBe("⏺ 1 action (ctrl+o to expand)");
+		expect(draw()).toBe("▸ 1 action (ctrl+o to expand)");
 		expect(pi.ui.setToolsExpanded).toHaveBeenCalledTimes(1);
 	});
 
@@ -134,7 +134,7 @@ describe("Ctrl+O cycles 1 → 2 → 3 → 1 on pi's own expanded flag", () => {
 		const pi = session({ sm: c.sm });
 		await pi.otherKey();
 		await pi.otherKey();
-		expect(row("x1", "custom", {}, { text: "done" })).toEqual(["⏺ 1 action (ctrl+o to expand)"]);
+		expect(row("x1", "custom", {}, { text: "done" })).toEqual(["▸ 1 action (ctrl+o to expand)"]);
 		expect(pi.ui.setToolsExpanded).not.toHaveBeenCalled();
 	});
 
@@ -145,7 +145,7 @@ describe("Ctrl+O cycles 1 → 2 → 3 → 1 on pi's own expanded flag", () => {
 		c.assistant([], { text: "Done." });
 		const pi = session({ expanded: true, sm: c.sm });
 		await pi.ctrlO();
-		expect(row("x1", "custom", {}, { text: "done" })).toEqual(["⏺ 1 action (ctrl+o to expand)"]);
+		expect(row("x1", "custom", {}, { text: "done" })).toEqual(["▸ 1 action (ctrl+o to expand)"]);
 	});
 
 	it.each(["print", "rpc", "json"])("%s mode: no input listener and nothing folded", async (mode) => {
@@ -172,17 +172,23 @@ describe("level 1: one summary line per group", () => {
 		const { c, calls } = oneGroup();
 		session({ sm: c.sm });
 		const drawn = calls.map(([id, tool, args, result]) => row(id, tool, args, result));
-		expect(drawn[0]).toEqual(["⏺ Ran 2 commands (1 failed), created 1 file, read 1 file, edited 1 file, and 1 more action (ctrl+o to expand)"]);
+		expect(drawn[0]).toEqual(["▸ Ran 2 commands (1 failed), created 1 file, read 1 file, edited 1 file, and 1 more action (ctrl+o to expand)"]);
 		for (const lines of drawn.slice(1)) expect(lines).toEqual([]);
 	});
 
-	it("the dot is red when a call failed, green otherwise", () => {
+	it("the summary marker is grey, also when a call failed; only the failed count is red", () => {
 		const { c, calls } = oneGroup();
 		session({ sm: c.sm });
 		const [id, tool, args, result] = calls[0];
 		const r = liveRow(wrapped(definitions[tool]), args, { id });
 		r.output(result.text);
-		expect(r.render(160).join("")).toContain(RED);
+		const line = r.render(160).join("");
+		expect(line).toContain(`${GREY}▸`);
+		// The last colour code before a piece of text is the colour it is drawn in.
+		const colourBefore = (text: string) => line.slice(0, line.indexOf(text)).match(/\x1b\[38;[\d;]+m/g)?.at(-1);
+		expect(colourBefore("Ran 2 commands")).toBeDefined();
+		expect(colourBefore(" (1 failed)")).toBeDefined();
+		expect(colourBefore(" (1 failed)")).not.toBe(colourBefore("Ran 2 commands"));
 	});
 
 	it("your messages and the agent's text end a group; its thinking does not", () => {
@@ -199,10 +205,10 @@ describe("level 1: one summary line per group", () => {
 		c.result("b4", "bash", "me");
 		c.assistant([], { text: "Done." });
 		session({ sm: c.sm });
-		expect(row("b1", "bash", { command: "ls" }, { text: "a.txt" })).toEqual(["⏺ Ran 2 commands (ctrl+o to expand)"]);
+		expect(row("b1", "bash", { command: "ls" }, { text: "a.txt" })).toEqual(["▸ Ran 2 commands (ctrl+o to expand)"]);
 		expect(row("b2", "bash", { command: "pwd" }, { text: "/tmp" })).toEqual([]);
-		expect(row("b3", "bash", { command: "date" }, { text: "today" })).toEqual(["⏺ Ran 1 command (ctrl+o to expand)"]);
-		expect(row("b4", "bash", { command: "whoami" }, { text: "me" })).toEqual(["⏺ Ran 1 command (ctrl+o to expand)"]);
+		expect(row("b3", "bash", { command: "date" }, { text: "today" })).toEqual(["▸ Ran 1 command (ctrl+o to expand)"]);
+		expect(row("b4", "bash", { command: "whoami" }, { text: "me" })).toEqual(["▸ Ran 1 command (ctrl+o to expand)"]);
 	});
 
 	it("an extension message ends a group only when pi shows it", () => {
@@ -217,9 +223,9 @@ describe("level 1: one summary line per group", () => {
 		c.result("b3", "bash", "today");
 		c.assistant([], { text: "Done." });
 		session({ sm: c.sm });
-		expect(row("b1", "bash", { command: "ls" }, { text: "a.txt" })).toEqual(["⏺ Ran 2 commands (ctrl+o to expand)"]);
+		expect(row("b1", "bash", { command: "ls" }, { text: "a.txt" })).toEqual(["▸ Ran 2 commands (ctrl+o to expand)"]);
 		expect(row("b2", "bash", { command: "pwd" }, { text: "/tmp" })).toEqual([]);
-		expect(row("b3", "bash", { command: "date" }, { text: "today" })).toEqual(["⏺ Ran 1 command (ctrl+o to expand)"]);
+		expect(row("b3", "bash", { command: "date" }, { text: "today" })).toEqual(["▸ Ran 1 command (ctrl+o to expand)"]);
 	});
 
 	it("a tool without drawing code of its own ends the group and is not counted", () => {
@@ -232,8 +238,8 @@ describe("level 1: one summary line per group", () => {
 		c.result("b2", "bash", "/tmp");
 		c.assistant([], { text: "Done." });
 		session({ sm: c.sm });
-		expect(row("b1", "bash", { command: "ls" }, { text: "a.txt" })).toEqual(["⏺ Ran 1 command (ctrl+o to expand)"]);
-		expect(row("b2", "bash", { command: "pwd" }, { text: "/tmp" })).toEqual(["⏺ Ran 1 command (ctrl+o to expand)"]);
+		expect(row("b1", "bash", { command: "ls" }, { text: "a.txt" })).toEqual(["▸ Ran 1 command (ctrl+o to expand)"]);
+		expect(row("b2", "bash", { command: "pwd" }, { text: "/tmp" })).toEqual(["▸ Ran 1 command (ctrl+o to expand)"]);
 	});
 
 	it("a running call draws its normal row and is not counted yet; a call not saved yet draws its normal row", () => {
@@ -242,7 +248,7 @@ describe("level 1: one summary line per group", () => {
 		c.result("b1", "bash", "a.txt");
 		c.assistant([["b2", "bash", { command: "sleep 8" }]]);
 		session({ sm: c.sm });
-		expect(row("b1", "bash", { command: "ls" }, { text: "a.txt" })).toEqual(["⏺ Ran 1 command (ctrl+o to expand)"]);
+		expect(row("b1", "bash", { command: "ls" }, { text: "a.txt" })).toEqual(["▸ Ran 1 command (ctrl+o to expand)"]);
 		expect(row("b2", "bash", { command: "sleep 8" }).join("\n")).toContain("$ sleep 8");
 		expect(row("unsaved", "bash", { command: "echo hi" }).join("\n")).toContain("$ echo hi");
 	});
@@ -254,7 +260,7 @@ describe("level 1: one summary line per group", () => {
 		session({ sm: c.sm });
 		expect(row("b1", "bash", { command: "echo one" }, { text: "one" }).join("\n")).toContain("$ echo one");
 		c.assistant([["b2", "bash", { command: "pwd" }]]);
-		expect(row("b1", "bash", { command: "echo one" }, { text: "one" })).toEqual(["⏺ Ran 1 command (ctrl+o to expand)"]);
+		expect(row("b1", "bash", { command: "echo one" }, { text: "one" })).toEqual(["▸ Ran 1 command (ctrl+o to expand)"]);
 		expect(row("b2", "bash", { command: "pwd" }).join("\n")).toContain("$ pwd");
 	});
 
@@ -267,16 +273,18 @@ describe("level 1: one summary line per group", () => {
 			return r;
 		});
 		const screen = () => plain(rows.flatMap((r) => r.render(160))).filter((l) => l.trim());
-		expect(screen()).toEqual(["⏺ Ran 2 commands (1 failed), created 1 file, read 1 file, edited 1 file, and 1 more action (ctrl+o to expand)"]);
+		expect(screen()).toEqual(["▸ Ran 2 commands (1 failed), created 1 file, read 1 file, edited 1 file, and 1 more action (ctrl+o to expand)"]);
 		// pi's own click handling: a click on a row toggles that row's expanded flag.
 		rows[0].expand(true);
 		const open = screen();
-		expect(open[0]).toBe("⏺ Ran 2 commands (1 failed), created 1 file, read 1 file, edited 1 file, and 1 more action (ctrl+o to expand)");
+		expect(open[0]).toBe("▾ Ran 2 commands (1 failed), created 1 file, read 1 file, edited 1 file, and 1 more action (ctrl+o to expand)");
+		// The rows sit 2 columns to the right of the summary line.
+		expect(open.slice(1).filter((line) => !line.startsWith("  "))).toEqual([]);
 		for (const text of ["Listed 1 directory", "$ cat missing.txt", "read a.txt", "write b.txt", "edit b.txt", "custom"]) expect(open.join("\n")).toContain(text);
 		// The summary's own row draws collapsed, like the others.
 		expect(open.join("\n")).not.toContain("Took");
 		rows[0].expand(false);
-		expect(screen()).toEqual(["⏺ Ran 2 commands (1 failed), created 1 file, read 1 file, edited 1 file, and 1 more action (ctrl+o to expand)"]);
+		expect(screen()).toEqual(["▸ Ran 2 commands (1 failed), created 1 file, read 1 file, edited 1 file, and 1 more action (ctrl+o to expand)"]);
 	});
 
 	it("a click on the latest row before it folds does not swallow the first click on its summary", () => {
@@ -288,7 +296,7 @@ describe("level 1: one summary line per group", () => {
 		r.output("one");
 		r.expand(true); // a click while it is still the latest call
 		c.assistant([["b2", "bash", { command: "pwd" }]]);
-		expect(plain(r.render(160)).filter((l) => l.trim())).toEqual(["⏺ Ran 1 command (ctrl+o to expand)"]);
+		expect(plain(r.render(160)).filter((l) => l.trim())).toEqual(["▸ Ran 1 command (ctrl+o to expand)"]);
 		r.expand(false); // the first click on the summary
 		expect(plain(r.render(160)).join("\n")).toContain("$ echo one");
 	});
@@ -308,7 +316,7 @@ describe("level 1: one summary line per group", () => {
 		await pi.ctrlO();
 		await pi.ctrlO();
 		expect(pi.expanded()).toBe(false);
-		expect(screen()).toEqual(["⏺ Ran 2 commands (1 failed), created 1 file, read 1 file, edited 1 file, and 1 more action (ctrl+o to expand)"]);
+		expect(screen()).toEqual(["▸ Ran 2 commands (1 failed), created 1 file, read 1 file, edited 1 file, and 1 more action (ctrl+o to expand)"]);
 	});
 
 	it("in an opened group, a click on another row expands that row as pi does", () => {
@@ -335,7 +343,7 @@ describe("level 1: one summary line per group", () => {
 		c.assistant([], { text: "Done." });
 		session({ sm: c.sm });
 		expect(row("g1", "bash", { command: "grep zzz notes.txt" }, { text: "(no output)\n\nCommand exited with code 1", isError: true })).toEqual([
-			"⏺ Ran 1 command, and 1 more action (1 failed) (ctrl+o to expand)",
+			"▸ Ran 1 command, and 1 more action (1 failed) (ctrl+o to expand)",
 		]);
 	});
 });
@@ -405,5 +413,29 @@ describe("third-party renderers that throw: pi's generic fallback, nothing lost 
 		const text = plain(row.render()).join("\n");
 		expect(text).not.toContain("partial output");
 		expect(text).toContain("final text");
+	});
+});
+
+describe("the call the model is writing", () => {
+	it("folds the older call in the frame the new call appears, before the new one is saved", () => {
+		const c = chat();
+		c.assistant([["w1", "bash", { command: "echo one" }]]);
+		c.result("w1", "bash", "one");
+		const pi = { on: vi.fn() };
+		watchLevels(pi as unknown as ExtensionAPI);
+		const handler = (name: string) => pi.on.mock.calls.find(([event]) => event === name)![1] as (event: unknown) => void;
+		session({ sm: c.sm });
+		const older = () => row("w1", "bash", { command: "echo one" }, { text: "one" });
+		expect(older().join("\n")).toContain("$ echo one");
+		// The model starts thinking: the older call stays.
+		handler("message_update")({ message: { role: "assistant", content: [{ type: "thinking", thinking: "next" }] } });
+		expect(older().join("\n")).toContain("$ echo one");
+		// The next call starts to stream: pi draws it now and saves it later.
+		handler("message_update")({ message: { role: "assistant", content: [{ type: "toolCall", id: "w2", name: "bash", arguments: {} }] } });
+		expect(older()).toEqual(["▸ Ran 1 command (ctrl+o to expand)"]);
+		// Saved: the call stays folded.
+		handler("message_end")({ message: {} });
+		c.assistant([["w2", "bash", { command: "pwd" }]]);
+		expect(older()).toEqual(["▸ Ran 1 command (ctrl+o to expand)"]);
 	});
 });
