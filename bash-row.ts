@@ -1,8 +1,9 @@
 import type { ToolRenderers } from "@earendil-works/pi-coding-agent";
 import { type Component, Text, truncateToWidth } from "@earendil-works/pi-tui";
-import { type CommandKind, classifyCommand } from "./classify";
+import { classifyCommand } from "./classify";
 import { dot } from "./dots";
 import { loud } from "./loud";
+import { lookLine } from "./look-row";
 
 type RenderCall = NonNullable<ToolRenderers["renderCall"]>;
 type RenderResult = NonNullable<ToolRenderers["renderResult"]>;
@@ -10,7 +11,7 @@ type RenderContext = Parameters<RenderCall>[2];
 type BashResult = Parameters<RenderResult>[0];
 
 /** Decided once by the result renderer, read by the call row at draw time. Absent until the first output. */
-type Outcome = "streaming" | "succeeded" | "failed" | Exclude<CommandKind, "work">;
+type Outcome = "streaming" | "succeeded" | "failed";
 interface RowState {
 	claudeRow?: Outcome;
 }
@@ -20,7 +21,6 @@ export const PREVIEW_LINES = 3;
 /** Claude Code's cap on the command in a collapsed row, measured on Claude Code 2.1.283 (decision A33). */
 const COMMAND_LINES = 2;
 const COMMAND_CHARS = 160;
-const SUMMARY = { list: "Listed 1 directory", read: "Read 1 file", search: "Searched for 1 pattern" } as const;
 
 /** grep and rg exit with code 1 when they find nothing. A single grep/rg with no output: a finished search. */
 const NO_MATCH = "(no output)\nCommand exited with code 1";
@@ -56,8 +56,12 @@ export function claudeBash(stock: ToolRenderers): ToolRenderers {
 			if (ctx.expanded) return stockCall(args, theme, fresh(ctx));
 			return lazy((width) => {
 				const outcome = rowState(ctx).claudeRow;
-				if (outcome === "list" || outcome === "read" || outcome === "search") {
-					return text(`  ${theme.fg("muted", `${SUMMARY[outcome]} (ctrl+o to expand)`)}`, width);
+				// A look-around command is its summary line from the moment the model starts writing it: "Reading…"
+				// while it runs, "Read" once done. Only a failure, or a command that grows into a pipe or chain,
+				// turns it into a full row.
+				const kind = classifyCommand((args as { command?: string } | undefined)?.command ?? "");
+				if (kind !== "work" && outcome !== "failed") {
+					return text(`  ${lookLine(kind, outcome !== "succeeded", theme)}`, width);
 				}
 				const colour = outcome === "succeeded" || outcome === "failed" ? outcome : "running";
 				// The command is undefined while the model is still typing it; stock shows "$ ..." then too.
@@ -74,9 +78,10 @@ export function claudeBash(stock: ToolRenderers): ToolRenderers {
 			const lines = outputLines(result);
 			const kind = classifyCommand(command);
 			const failed = bashFailed(result, ctx);
-			// Until the first real output line arrives, the row stays at "Running…".
-			if (options.isPartial && lines.length === 0) return nothing;
-			const outcome: Outcome = options.isPartial ? "streaming" : failed ? "failed" : kind !== "work" ? kind : "succeeded";
+			// Until the first real output line arrives, the row stays at "Running…". A look-around command shows
+			// no live output: it is already its summary line.
+			if (options.isPartial && (lines.length === 0 || kind !== "work")) return nothing;
+			const outcome: Outcome = options.isPartial ? "streaming" : failed ? "failed" : "succeeded";
 			rowState(ctx).claudeRow = outcome;
 			if (options.expanded) return stockResult(result, options, theme, fresh(ctx));
 			// Let stock finish its own lifecycle (e.g. stop the timer its expanded view may have started).
@@ -87,7 +92,8 @@ export function claudeBash(stock: ToolRenderers): ToolRenderers {
 				const scratch = { startedAt: undefined, endedAt: undefined, interval: undefined };
 				return stockResult(result, options, theme, { ...fresh(ctx), state: scratch });
 			}
-			if (outcome !== "succeeded" && outcome !== "failed") return nothing;
+			// A look-around command that did not fail is its summary line, drawn by the call row.
+			if (kind !== "work" && outcome !== "failed") return nothing;
 			const shown = lines.slice(0, PREVIEW_LINES).map((l) => `  ${theme.fg("toolOutput", l)}`);
 			const hidden = lines.length - PREVIEW_LINES;
 			if (hidden > 0) shown.push(`  ${theme.fg("muted", `… +${hidden} lines (ctrl+o to expand)`)}`);

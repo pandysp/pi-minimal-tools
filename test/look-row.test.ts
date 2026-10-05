@@ -8,7 +8,7 @@ import {
 import { Text, visibleWidth } from "@earendil-works/pi-tui";
 import { describe, expect, it, vi } from "vitest";
 import extension from "../index";
-import { LOOK_SUMMARY, shortLook } from "../look-row";
+import { KIND, LOOK_WORDS, shortLook } from "../look-row";
 import { DOT, GREY, RED, plain } from "./helpers/claude-code";
 import { liveRow, renderRow } from "./helpers/row";
 
@@ -26,7 +26,9 @@ describe.each(Object.entries(tools))("%s: dedicated look-around row", (name, too
 		const stock = tool.definition();
 		return { ...stock, ...shortLook(key, stock) };
 	};
-	const summary = `  ${LOOK_SUMMARY[key]} (ctrl+o to expand)`;
+	const words = LOOK_WORDS[KIND[key]];
+	const summary = `  ${words.done} (ctrl+o to expand)`;
+	const running = `  ${words.running} (ctrl+o to expand)`;
 
 	it("202 result lines collapse to one line; Ctrl+O shows stock's full view; collapsing restores it", () => {
 		const row = liveRow(definition(), tool.args);
@@ -44,14 +46,13 @@ describe.each(Object.entries(tools))("%s: dedicated look-around row", (name, too
 		expect(visible(renderRow({ definition: definition(), args: tool.args, result: { text } }))).toEqual([summary]);
 	});
 
-	it("argument streaming, running and partial results stay stock with a grey dot, then collapse", () => {
+	it("the summary line from the first frame on, in the -ing form while running; only the verb changes when done", () => {
 		const row = liveRow(definition(), {}, { argsComplete: false });
-		expect(row.render().join("")).toContain(`${GREY}${DOT}`);
+		expect(visible(row.render())).toEqual([running]);
 		row.streamArgs(tool.args);
 		row.completeArgs(tool.args);
 		row.output(numbered(30), { partial: true });
-		expect(row.render().join("")).toContain(`${GREY}${DOT}`);
-		expect(visible(row.render()).join("\n")).toContain("line 1");
+		expect(visible(row.render())).toEqual([running]);
 		row.expand(true);
 		expect(visible(row.render()).join("\n")).toContain("line 30");
 		row.expand(false);
@@ -67,7 +68,7 @@ describe.each(Object.entries(tools))("%s: dedicated look-around row", (name, too
 		expect(text).toContain("Cannot access /missing");
 		expect(text).toContain("line 40");
 		expect(text).not.toContain("more lines");
-		expect(text).not.toContain(LOOK_SUMMARY[key]);
+		expect(text).not.toContain(words.done);
 		const collapsed = row.render();
 		row.expand(true);
 		expect(visible(row.render()).join("\n")).toContain("line 40");
@@ -90,7 +91,7 @@ describe.each(Object.entries(tools))("%s: dedicated look-around row", (name, too
 		{ linesTruncated: true },
 	])("limits stay visible in the one-line summary: %j", (details) => {
 		expect(visible(renderRow({ definition: definition(), args: tool.args, result: { text: numbered(202), details } }))).toEqual([
-			`  [truncated] ${LOOK_SUMMARY[key]} (ctrl+o to expand)`,
+			`  [truncated] ${words.done} (ctrl+o to expand)`,
 		]);
 	});
 
@@ -134,7 +135,7 @@ describe("look-around registration is display-only", () => {
 			expect(renderers).not.toHaveProperty("execute");
 			expect(resolve!(name, () => undefined)).toBeUndefined();
 			const row = renderRow({ definition: { ...stock, ...renderers }, args: tool.args, result: { text: numbered(202) } });
-			expect(visible(row)).toEqual([`  ${LOOK_SUMMARY[name as keyof typeof tools]} (ctrl+o to expand)`]);
+			expect(visible(row)).toEqual([`  ${LOOK_WORDS[KIND[name as keyof typeof KIND]].done} (ctrl+o to expand)`]);
 		}
 		expect(registerTool).not.toHaveBeenCalled();
 		expect(setActiveTools).not.toHaveBeenCalled();
