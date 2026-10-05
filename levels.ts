@@ -1,7 +1,7 @@
 import type { ExtensionAPI, Theme, ToolRenderers } from "@earendil-works/pi-coding-agent";
 import { Box, type Component, truncateToWidth } from "@earendil-works/pi-tui";
 import { dot } from "./dots";
-import { folds, groupOf, summarize, useSession } from "./groups";
+import { folds, groupOf, summarize, useSession, writing } from "./groups";
 
 /**
  * Three levels on pi's own expand key (Ctrl+O): 1 folds finished calls into one summary line per group, 2 is pi's collapsed
@@ -13,6 +13,9 @@ import { folds, groupOf, summarize, useSession } from "./groups";
 let level: 1 | 2 | 3 = 2;
 
 export function watchLevels(pi: ExtensionAPI) {
+	// pi tells extensions before it draws, so the older call folds in the frame in which the next one appears.
+	pi.on("message_update", (event) => writing(event.message));
+	pi.on("message_end", () => writing(undefined));
 	pi.on("session_start", (_event, ctx) => {
 		if (ctx.mode !== "tui") return;
 		// pi keeps its flag across /new, /resume and /reload; a new session starts hidden unless expanded.
@@ -55,17 +58,22 @@ const opened = new Set<string>();
  * What a row draws at level 1. A folded call draws nothing, except the group's first folded call, which draws
  * the summary line (and its own row below it when the group is opened). Other calls draw their normal row.
  */
-type Fold = "row" | "nothing" | { summary: string; open: boolean };
+type Fold = "row" | "nested" | "nothing" | { summary: string; open: boolean };
 function fold(toolCallId: string, theme: Theme): Fold {
 	if (level !== 1) return "row";
 	const group = groupOf(toolCallId);
 	if (!group || !folds(group.calls.get(toolCallId))) return "row";
 	const head = group.ids.find((id) => folds(group.calls.get(id)))!;
 	const open = opened.has(head);
-	if (head !== toolCallId) return open ? "row" : "nothing";
-	const { text, failed } = summarize(group.ids.map((id) => group.calls.get(id)!));
-	return { summary: `${dot(failed ? "failed" : "succeeded")} ${text}${theme.fg("dim", " (ctrl+o to expand)")}`, open };
+	if (head !== toolCallId) return open ? "nested" : "nothing";
+	const text = summarize(group.ids.map((id) => group.calls.get(id)!));
+	// ▸ closed, ▾ open, in grey: it reads as a heading, not as a command. Only "(N failed)" is red.
+	const words = text.split(/( \(\d+ failed\))/).map((part, i) => theme.fg(i % 2 ? "error" : "muted", part)).join("");
+	return { summary: `${dot("running", open ? "▾" : "▸")} ${words}${theme.fg("dim", " (ctrl+o to expand)")}`, open };
 }
+
+/** The rows of an opened group, 2 columns to the right of their summary line. */
+const nest = (draw: (width: number) => string[], width: number) => draw(width - 2).map((line) => `  ${line}`);
 const isHead = (fold: Fold) => typeof fold === "object";
 
 /**
@@ -102,9 +110,10 @@ export function hideable(renderers: ToolRenderers): ToolRenderers {
 				render: (width) => {
 					const f = fold(ctx.toolCallId, theme);
 					if (f === "nothing") return [];
-					const own = () => (ownShell ? row.call!.render(width) : framed(row, theme, ctx).render(width));
-					if (f === "row") return own();
-					return [truncateToWidth(f.summary, width), ...(f.open ? ["", ...own()] : [])];
+					const own = (w: number) => (ownShell ? row.call!.render(w) : framed(row, theme, ctx).render(w));
+					if (f === "row") return own(width);
+					if (f === "nested") return nest(own, width);
+					return [truncateToWidth(f.summary, width), ...(f.open ? ["", ...nest(own, width)] : [])];
 				},
 				invalidate: () => row.call?.invalidate(),
 			};
@@ -121,7 +130,8 @@ export function hideable(renderers: ToolRenderers): ToolRenderers {
 			return {
 				render: (width) => {
 					const f = fold(ctx.toolCallId, theme);
-					return f === "row" || (typeof f === "object" && f.open) ? row.result!.render(width) : [];
+					if (f === "row") return row.result!.render(width);
+					return f === "nested" || (typeof f === "object" && f.open) ? nest((w) => row.result!.render(w), width) : [];
 				},
 				invalidate: () => row.result?.invalidate(),
 			};

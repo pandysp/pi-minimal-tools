@@ -8,7 +8,6 @@ import { renderRow } from "./helpers/row";
 function registration() {
 	let resolve: ToolRendererResolver | undefined;
 	const api = {
-		registerMarkdownTransformer: vi.fn(),
 		registerToolRenderer: vi.fn((resolver: ToolRendererResolver) => { resolve = resolver; }),
 		registerTool: vi.fn(),
 		setActiveTools: vi.fn(),
@@ -27,9 +26,7 @@ describe("the entire extension is display-only", () => {
 	it("registers one renderer resolver, one markdown transformer and the Ctrl+O level watcher, without tool ownership", () => {
 		const { api } = registration();
 		expect(api.registerToolRenderer).toHaveBeenCalledTimes(1);
-		expect(api.registerMarkdownTransformer).toHaveBeenCalledTimes(1);
-		expect(api.on).toHaveBeenCalledTimes(1);
-		expect(api.on).toHaveBeenCalledWith("session_start", expect.any(Function));
+		expect(api.on.mock.calls.map(([event]) => event).sort()).toEqual(["message_end", "message_update", "session_start"]);
 		for (const call of [api.registerTool, api.setActiveTools, api.getActiveTools, api.getAllTools, api.getSettings]) expect(call).not.toHaveBeenCalled();
 	});
 

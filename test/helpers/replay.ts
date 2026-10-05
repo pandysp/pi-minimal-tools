@@ -35,8 +35,9 @@ export async function replay(fixture: string, withExtension: boolean, cwd = temp
 		if (click) {
 			const row = tmux("capture-pane", "-p", "-t", name).split("\n").findIndex((l) => l.includes(click)) + 1;
 			if (row === 0) throw new Error(`nothing to click: "${click}" is not on screen`);
-			// An SGR mouse press and release at column 10 of that line, as a terminal sends them.
-			tmux("send-keys", "-t", name, "-l", `\x1b[<0;10;${row}M\x1b[<0;10;${row}m`);
+			// An SGR mouse press and release at column 10 of that line; a terminal sends them as two writes.
+			tmux("send-keys", "-t", name, "-l", `\x1b[<0;10;${row}M`);
+			tmux("send-keys", "-t", name, "-l", `\x1b[<0;10;${row}m`);
 			await sleep(1000);
 			last = tmux("capture-pane", "-e", "-p", "-S", "-3000", "-t", name);
 		}
@@ -56,7 +57,7 @@ export async function replay(fixture: string, withExtension: boolean, cwd = temp
 export function splitAtToolCalls(screen: string[], promptEnd: string, replyStart: string) {
 	const lines = plain(screen);
 	const from = lines.findIndex((l) => l.includes(promptEnd));
-	const to = lines.findIndex((l, i) => i > from && l.replace(/^\s*⏺ /, "").startsWith(replyStart));
+	const to = lines.findIndex((l, i) => i > from && l.trimStart().startsWith(replyStart));
 	if (from === -1 || to === -1) throw new Error(`anchors not found: "${promptEnd}" … "${replyStart}"`);
 	return { before: lines.slice(0, from + 1), tools: lines.slice(from + 1, to), after: lines.slice(to) };
 }
