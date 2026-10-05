@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.2
+
 - At level 1 the latest call keeps its own row until the next call, text or reply arrives. Before, a call folded the moment it finished, so for the seconds the model spent on its next call, nothing showed what had just happened.
 - A click on a level-1 summary line opens its group: the rows show below it, as at level 2. A second click closes it.
 
