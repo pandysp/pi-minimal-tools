@@ -1,6 +1,6 @@
 {
 	"name": "pi-minimal-tools",
-	"version": "0.1.3",
+	"version": "0.1.4",
 	"description": "Claude Code-style tool rows for pi: Ctrl+O first hides finished tool rows, look-around commands collapse to one line, real work gets a short preview",
 	"repository": {
 		"type": "git",
